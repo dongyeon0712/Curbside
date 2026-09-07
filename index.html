@@ -448,8 +448,6 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important};.spinner{animation-duration:1.6s}}
   svg{display:block}
 </style>
-</head>
-<body>
 
 <div class="app">
   <header class="topbar" id="topbar"></header>
@@ -1176,11 +1174,12 @@
 
   var authState;
   function freshAuth(){
-    // If an account already exists on this device (signed out), skip the role
-    // picker and land on the sign-in screen.
+    // Always open on the role picker ("Welcome to Curbside") so a signed-out
+    // homeowner can still choose the helper path. If an account already exists
+    // on this device, the homeowner card lands on Sign in rather than Sign up.
     var known = state && state.profile && state.profile.onboarded;
     authState={
-      step: known ? "welcome" : "role",
+      step: "role",
       role: known ? (state.profile.role||"homeowner") : null,
       mode: known ? "signin" : "signup",
       name:"",email:"",contact:"",channel:"email",hasPassword:false,code:"",
@@ -1192,7 +1191,7 @@
   function signOut(){
     state.profile.signedIn=false;
     freshAuth(); save(); go("auth");
-    toast("info","Signed out","Reconnect with Google to get back in.");
+    toast("info","Signed out","Sign back in any time to post a job.");
   }
 
   // called when auth (google or code) succeeds
@@ -1342,18 +1341,15 @@
     var em=el("button","cta ghost"); em.textContent=(signin?"Sign in":"Sign up")+" with email";
     em.addEventListener("click",function(){ authState.gaccount=null; authState.step="email"; renderAuth(); });
     b.appendChild(em);
-    var known=!!(state.profile && state.profile.onboarded);
     var row=el("div","btn-row");
     var toggle=el("button","linkbtn");
     toggle.style.alignSelf="center";
     toggle.textContent=signin?"New here? Create an account":"Already have an account? Sign in";
     toggle.addEventListener("click",function(){ authState.mode=signin?"signup":"signin"; renderAuth(); });
     row.appendChild(toggle);
-    if(!known){
-      var rback=el("button","linkbtn"); rback.style.alignSelf="center"; rback.textContent="Not a homeowner? Go back";
-      rback.addEventListener("click",function(){ authState.mode="signup"; authState.step="role"; renderAuth(); });
-      row.appendChild(rback);
-    }
+    var rback=el("button","linkbtn"); rback.style.alignSelf="center"; rback.textContent="Not a homeowner? Go back";
+    rback.addEventListener("click",function(){ authState.step="role"; renderAuth(); });
+    row.appendChild(rback);
     row.appendChild(el("p","legal",'Sample flow — no real Google account is connected. By continuing you agree to the Terms and Privacy Policy.'));
     b.appendChild(row);
   }
@@ -2211,6 +2207,7 @@
   setInterval(tick,1000);
 })();
 </script>
+
 
 </body>
 </html>
