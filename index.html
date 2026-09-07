@@ -472,6 +472,29 @@
   .chat-foot .snd{flex:none;width:38px;height:38px;border-radius:50%;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .chat-foot .snd:disabled{opacity:.4;cursor:default}
   @media (prefers-reduced-motion:reduce){.cmsg.typing .dot{animation:none}}
+
+  /* inbox */
+  .inbox-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;background:none;border:none;border-bottom:1px solid var(--hair-soft);padding:13px 2px;font-family:var(--font)}
+  .inbox-row:hover{background:var(--surface)}
+  .inbox-row .iav{width:40px;height:40px;flex:none;border-radius:50%;background:var(--primary-wash);color:var(--primary-deep);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .inbox-row .ib{flex:1;min-width:0}
+  .inbox-row .in-top{display:flex;align-items:baseline;gap:8px}
+  .inbox-row .in-name{font-size:13.5px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inbox-row .in-time{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+  .inbox-row .in-prev{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .inbox-row.unread .in-name{font-weight:800}
+  .inbox-row.unread .in-prev{color:var(--ink);font-weight:600}
+  .inbox-row .in-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex:none}
+
+  /* simulated call */
+  .call-overlay{position:absolute;inset:0;z-index:70;background:var(--primary-deep);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:56px 24px 44px;text-align:center}
+  .call-overlay .call-sim{font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .call-overlay .call-av{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;margin:0 auto 16px}
+  .call-overlay .call-name{font-size:22px;font-weight:800;letter-spacing:-0.02em}
+  .call-overlay .call-status{font-size:13.5px;color:rgba(255,255,255,.7);margin-top:6px;font-variant-numeric:tabular-nums}
+  .call-overlay .call-mid{display:flex;flex-direction:column;justify-content:center;flex:1}
+  .call-overlay .call-end{width:62px;height:62px;border-radius:50%;border:none;background:var(--alert);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transform:rotate(135deg)}
+  .call-overlay .call-end svg{width:22px;height:22px}
   .hsearch{position:relative;margin-top:2px}
   .hsearch input{width:100%;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--app);border:1px solid var(--hair);border-radius:11px;padding:11px 12px 11px 36px;outline:none}
   .hsearch input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-wash)}
@@ -631,6 +654,10 @@
       <div class="scroll"><div class="detail" id="hjob-body"></div></div>
     </section>
 
+    <section class="screen" id="view-inbox" hidden>
+      <div class="scroll"><div class="detail" id="inbox-body"></div></div>
+    </section>
+
     <section class="screen" id="view-chat" hidden>
       <div class="scroll" id="chat-scroll"><div class="chat-wrap" id="chat-body"></div></div>
       <div class="chat-foot">
@@ -746,13 +773,13 @@
     var a2="908 Cedar Ln, Arlington VA", s2="908 Cedar Ln";
     var tmr=new Date(now+DAY);
 
-    // Job 1 — one-time, both legs: bins taken out (awaiting review), bins-in visit still to come
+    var notes1="Bins live on the left side of the driveway behind the gate (code 2231). Please leave a 3 ft gap between the two carts at the curb.";
+    // Job 1a — take-out, done and awaiting review
     var job1={
       id:"sample", sample:true, address:a1, bins:["Trash","Recycling"], rate:12,
-      doOut:true, doIn:true,
-      outDate:isoDate(new Date(now-DAY)), outTime:"6:00 PM",
-      inDate:isoDate(tmr), inTime:"8:00 PM",
-      notes:"Bins live on the left side of the driveway behind the gate (code 2231). Please leave a 3 ft gap between the two carts at the curb.",
+      doOut:true, doIn:false,
+      outDate:isoDate(new Date(now-DAY)), outTime:"6:00 PM", inDate:"", inTime:"8:00 PM",
+      notes:notes1,
       photos:{ref:[refPhoto("pickup")]},
       createdAt:now-2*DAY, services:[
         { id:"s_review", type:"out", date:now-2*HR, status:"done", completedAt:now-5*HR,
@@ -761,7 +788,17 @@
             {t:now-2*DAY,type:"posted",text:"Job posted"},
             {t:now-6*HR,type:"enroute",text:"Marcus B. accepted the job and is nearby",sub:"Heading to "+s1},
             {t:now-5*HR,type:"done",text:"Bins are out - verification photo submitted",sub:"Timestamp + GPS embedded - location matches address"}
-          ]},
+          ]}
+      ]
+    };
+    // Job 1b — bring-in, still scheduled (separate job, tracked on its own)
+    var job1b={
+      id:"sample1b", sample:true, address:a1, bins:["Trash","Recycling"], rate:12,
+      doOut:false, doIn:true,
+      outDate:"", outTime:"6:00 PM", inDate:isoDate(tmr), inTime:"8:00 PM",
+      notes:notes1,
+      photos:{ref:[refPhoto("pickup")]},
+      createdAt:now-2*DAY, services:[
         { id:"s_in", type:"in", date:tsFromDate(isoDate(tmr),"8:00 PM"), status:"scheduled",
           afterPhoto:null, disputeDeadline:null, dispute:null,
           events:[{t:now-2*DAY,type:"posted",text:"Job posted"}] }
@@ -789,7 +826,7 @@
     };
 
     return {
-      jobs:[job1,job2],
+      jobs:[job1,job1b,job2],
       notifications:[
         {id:uid(),kind:"done",jobId:"sample",svcId:"s_review",text:"Bins taken out at "+s1+" - review the photo within 24 hours",at:now-5*HR,read:false},
         {id:uid(),kind:"near",jobId:"sample",svcId:"s_review",text:"Marcus is nearby and starting your bins at "+s1,at:now-6*HR,read:true},
@@ -854,7 +891,8 @@
     cash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg>',
     x:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chat:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg>',
-    cog:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.4"/><path d="M12 2v3M12 19v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>'
+    phone:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+    cog:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
 
   /* ---------- status model ---------- */
@@ -1090,21 +1128,30 @@
       if(firstErr) firstErr.scrollIntoView({block:"center",behavior:"smooth"});
       return;
     }
-    var job={
-      id:uid(), address:address, bins:bins, rate:rate,
-      propertyId:formPropId||null,
-      doOut:doOut, doIn:doIn,
-      outDate:outDate, outTime:$("f-outtime").value.trim()||"6:00 PM",
-      inDate:inDate, inTime:$("f-intime").value.trim()||"8:00 PM",
-      notes:notes,
-      photos:{ref:pending.ref.slice()},
-      createdAt:Date.now(), services:[]
-    };
-    job.services=genServices(job);
-    state.jobs.push(job); save();
+    // Take-out and bring-in become separate jobs so each is tracked and
+    // completed on its own.
+    var legs=[]; if(doOut) legs.push("out"); if(doIn) legs.push("in");
+    var outT=$("f-outtime").value.trim()||"6:00 PM", inT=$("f-intime").value.trim()||"8:00 PM";
+    legs.forEach(function(leg){
+      var job={
+        id:uid(), address:address, bins:bins, rate:rate,
+        propertyId:formPropId||null,
+        doOut:leg==="out", doIn:leg==="in",
+        outDate: leg==="out"?outDate:"", outTime:outT,
+        inDate: leg==="in"?inDate:"", inTime:inT,
+        notes:notes,
+        photos:{ref:pending.ref.slice()},
+        createdAt:Date.now(), services:[]
+      };
+      job.services=genServices(job);
+      state.jobs.push(job);
+    });
+    save();
     resetForm(); go("home");
-    var n=job.services.length;
-    toast("info","Job posted",(n>1?"2 visits":"1 visit")+" scheduled at "+address.split(",")[0]);
+    toast("info", legs.length>1?"2 jobs posted":"Job posted",
+      legs.length>1
+        ? "Take-out and bring-in at "+address.split(",")[0]+" are tracked separately."
+        : (legs[0]==="out"?"Take-out":"Bring-in")+" at "+address.split(",")[0]);
   }
 
   /* ---------- simulation ---------- */
@@ -1113,6 +1160,7 @@
     var s=f.svc, j=f.job, lm=legMeta(s.type), place=j.address.split(",")[0];
     s.status="enroute";
     s.events.push({t:Date.now(),type:"enroute",text:"Marcus B. accepted the job and is nearby",sub:"Heading to "+place});
+    chatFor("o:"+s.id); // helper is assigned — open the message thread
     save();
     notify("near",j.id,s.id,"Marcus "+lm.nearText+" at "+place);
     refresh();
@@ -1205,6 +1253,9 @@
     if(route.name==="home"){
       t.appendChild(el("div","brand",'<span class="mk"></span>Curbside'));
       var sp=el("div","sp"); t.appendChild(sp);
+      var msg=el("button","icon-btn"); msg.setAttribute("aria-label","Messages"); msg.innerHTML=ICONS.chat;
+      var mu=messagesUnread(); if(mu) msg.appendChild(el("span","badge",mu>9?"9+":String(mu)));
+      msg.addEventListener("click",function(){ go("inbox"); }); t.appendChild(msg);
       var set=el("button","icon-btn"); set.setAttribute("aria-label","Settings"); set.innerHTML=ICONS.cog;
       set.addEventListener("click",function(){ go("settings"); }); t.appendChild(set);
       if(state.profile.role!=="helper"){
@@ -1218,11 +1269,18 @@
       var title="";
       if(route.name==="new") title="New job";
       else if(route.name==="settings") title="Settings";
+      else if(route.name==="inbox") title="Messages";
       else if(route.name==="service"){ var f=findService(route.param); title=f?f.job.address.split(",")[0]:"Service"; }
       else if(route.name==="listing") title="Job details";
       else if(route.name==="hjob"){ var A=acceptedById(route.param); var LL=A&&listingById(A.listingId); title=LL?LL.fullAddress.split(",")[0]:"Your job"; }
       else if(route.name==="chat"){ title=(chatTyping===route.param)?"typing…":chatFor(route.param).who; }
       t.appendChild(el("h1",null,esc(title)));
+      if(route.name==="chat"){
+        t.appendChild(el("div","sp"));
+        var callb=el("button","icon-btn"); callb.setAttribute("aria-label","Call"); callb.innerHTML=ICONS.phone;
+        callb.addEventListener("click",function(){ startCall(chatFor(route.param).who); });
+        t.appendChild(callb);
+      }
     }
   }
   function chatBackTarget(){
@@ -1233,13 +1291,14 @@
   }
 
   function show(id){
-    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob","view-chat"].forEach(function(v){ $(v).hidden=(v!==id); });
+    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob","view-chat","view-inbox"].forEach(function(v){ $(v).hidden=(v!==id); });
   }
 
   function renderScreen(){
     if(route.name==="auth"){ show("view-auth"); renderAuth(); }
     else if(route.name==="home"){ show("view-home"); (state.profile.role==="helper"?renderHelperHome:renderHome)(); }
     else if(route.name==="new"){ show("view-new"); prefillNewJob(); }
+    else if(route.name==="inbox"){ show("view-inbox"); renderInbox(); }
     else if(route.name==="service"){ show("view-service"); renderService(route.param); }
     else if(route.name==="settings"){ show("view-settings"); renderSettings(); }
     else if(route.name==="listing"){ show("view-listing"); renderListing(route.param); }
@@ -1804,13 +1863,22 @@
     if(state.helper.seeded) return;
     var now=Date.now(), DAY=86400000;
     function d(off){ return isoDate(new Date(now+off*DAY)); }
+    var danaNotes="Bins are on the left side of the garage behind the wooden gate (latch, no lock). Two 96-gal carts — leave a 3 ft gap at the curb, wheels toward the street.";
+    var ellenNotes="Carts live in the garage — opener code 2231 on the keypad by the side door. Yard-waste paper bags go next to the cart at the curb.";
+    var danaPickup=refPhoto("pickup"), ellenPickup=refPhoto("pickup");
+    // Each leg is its own listing so a helper accepts and completes take-out
+    // and bring-in separately.
     state.helper.listings=[
       {id:uid(),homeownerFirst:"Dana",area:"Arlington, VA 22205",streetApprox:"N Maple St area",
         fullAddress:"1424 N Maple St, Arlington, VA 22205",
-        bins:["Trash","Recycling"],legs:{out:true,in:true},
-        outDate:d(1),outTime:"6:00 PM",inDate:d(2),inTime:"8:00 AM",
-        notes:"Bins are on the left side of the garage behind the wooden gate (latch, no lock). Two 96-gal carts — leave a 3 ft gap at the curb, wheels toward the street.",
-        photos:[refPhoto("pickup")],pay:14,distanceMi:0.4,postedAt:now-3600000},
+        bins:["Trash","Recycling"],legs:{out:true,in:false},
+        outDate:d(1),outTime:"6:00 PM",inDate:"",inTime:"",
+        notes:danaNotes,photos:[danaPickup],pay:8,distanceMi:0.4,postedAt:now-3600000},
+      {id:uid(),homeownerFirst:"Dana",area:"Arlington, VA 22205",streetApprox:"N Maple St area",
+        fullAddress:"1424 N Maple St, Arlington, VA 22205",
+        bins:["Trash","Recycling"],legs:{out:false,in:true},
+        outDate:"",outTime:"",inDate:d(2),inTime:"8:00 AM",
+        notes:danaNotes,photos:[danaPickup],pay:7,distanceMi:0.4,postedAt:now-3600000},
       {id:uid(),homeownerFirst:"Marcus",area:"Arlington, VA 22204",streetApprox:"Columbia Pike area",
         fullAddress:"3110 Columbia Pike, Arlington, VA 22204",
         bins:["Trash"],legs:{out:true,in:false},
@@ -1825,10 +1893,14 @@
         photos:[refPhoto("dropoff")],pay:11,distanceMi:2.6,postedAt:now-1800000,forceGpsFail:true},
       {id:uid(),homeownerFirst:"Ellen",area:"Arlington, VA 22207",streetApprox:"Cedar Ln area",
         fullAddress:"908 Cedar Ln, Arlington, VA 22207",
-        bins:["Trash","Yard waste"],legs:{out:true,in:true},
-        outDate:d(2),outTime:"6:30 PM",inDate:d(3),inTime:"8:00 AM",
-        notes:"Carts live in the garage — opener code 2231 on the keypad by the side door. Yard-waste paper bags go next to the cart at the curb.",
-        photos:[refPhoto("pickup")],pay:15,distanceMi:0.8,postedAt:now-5400000}
+        bins:["Trash","Yard waste"],legs:{out:true,in:false},
+        outDate:d(2),outTime:"6:30 PM",inDate:"",inTime:"",
+        notes:ellenNotes,photos:[ellenPickup],pay:9,distanceMi:0.8,postedAt:now-5400000},
+      {id:uid(),homeownerFirst:"Ellen",area:"Arlington, VA 22207",streetApprox:"Cedar Ln area",
+        fullAddress:"908 Cedar Ln, Arlington, VA 22207",
+        bins:["Trash","Yard waste"],legs:{out:false,in:true},
+        outDate:"",outTime:"",inDate:d(3),inTime:"8:00 AM",
+        notes:ellenNotes,photos:[ellenPickup],pay:8,distanceMi:0.8,postedAt:now-5400000}
     ];
     state.helper.accepted=[];
     state.helper.seeded=true;
@@ -1994,8 +2066,10 @@
     accept.addEventListener("click",function(){
       if(!confirm("Accept this job for $"+l.pay.toFixed(0)+"? "+l.homeownerFirst+"'s exact address will be shared with you.")) return;
       var rec={id:uid(),listingId:l.id,acceptedAt:Date.now(),status:"accepted",jobPhoto:null,submittedAt:null,gpsOverride:false};
-      state.helper.accepted.push(rec); save();
-      toast("info","Job accepted","Address and directions are now in Your jobs.");
+      state.helper.accepted.push(rec);
+      chatFor("h:"+rec.id); // open the thread with the homeowner right away
+      save();
+      toast("info","Job accepted","Address, directions and a chat with "+esc(l.homeownerFirst)+" are in Your jobs.");
       go("hjob",rec.id);
     });
     act.appendChild(accept);
@@ -2135,7 +2209,7 @@
         who="Marcus B.";
         seed=[{from:"them",text:"Hi — I've got your job. I'll head over around the scheduled time and send a photo once the bins are set.",ts:now-5400000}];
       }
-      state.chats[key]={who:who,messages:seed,theirReadIdx:-1,theirReadAt:null,seenByMe:true};
+      state.chats[key]={who:who,messages:seed,theirReadIdx:-1,theirReadAt:null,seenByMe:false};
     }
     return state.chats[key];
   }
@@ -2206,6 +2280,70 @@
         }
       }, 1500+Math.random()*1100));
     }, 650));
+  }
+
+  function chatUnread(key){
+    var c=state.chats&&state.chats[key];
+    return !!(c && !c.seenByMe && c.messages.length && c.messages[c.messages.length-1].from==="them");
+  }
+  function messagesUnread(){
+    if(!state.chats) return 0;
+    return Object.keys(state.chats).filter(chatUnread).length;
+  }
+
+  function renderInbox(){
+    var body=$("inbox-body"); body.innerHTML="";
+    var keys=state.chats?Object.keys(state.chats):[];
+    keys.sort(function(a,b){
+      var ma=state.chats[a].messages, mb=state.chats[b].messages;
+      return (mb[mb.length-1]||{ts:0}).ts - (ma[ma.length-1]||{ts:0}).ts;
+    });
+    if(!keys.length){
+      var e=el("div","empty");
+      e.innerHTML='<div class="ic">'+ICONS.chat+'</div><p>No messages yet. Start a conversation from a job.</p>';
+      body.appendChild(e);
+      return;
+    }
+    keys.forEach(function(key){
+      var c=state.chats[key], last=c.messages[c.messages.length-1]||{text:"",ts:Date.now()};
+      var unread=chatUnread(key);
+      var row=el("button","inbox-row"+(unread?" unread":""));
+      row.innerHTML='<span class="iav">'+esc(initials(c.who))+'</span>'+
+        '<span class="ib"><span class="in-top"><span class="in-name">'+esc(c.who)+'</span>'+
+        '<span class="in-time">'+chatTime(last.ts)+'</span></span>'+
+        '<span class="in-prev">'+(last.from==="me"?"You: ":"")+esc(last.text)+'</span></span>'+
+        (unread?'<span class="in-dot"></span>':'');
+      row.addEventListener("click",function(){ go("chat",key); });
+      body.appendChild(row);
+    });
+  }
+
+  /* ---------- simulated call ---------- */
+  function startCall(name){
+    var app=document.querySelector(".app");
+    if(app.querySelector(".call-overlay")) return;
+    var ov=el("div","call-overlay");
+    ov.innerHTML='<div class="call-sim">Simulated call</div>'+
+      '<div class="call-mid"><div class="call-av">'+esc(initials(name))+'</div>'+
+      '<div class="call-name">'+esc(name)+'</div><div class="call-status">Calling…</div></div>'+
+      '<button class="call-end" aria-label="End call">'+ICONS.phone+'</button>';
+    app.appendChild(ov);
+    var startedAt=null, tmr=null;
+    var connectT=setTimeout(function(){
+      startedAt=Date.now();
+      var st=ov.querySelector(".call-status");
+      tmr=setInterval(function(){
+        var s=Math.floor((Date.now()-startedAt)/1000);
+        st.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+      },500);
+      st.textContent="0:00";
+    },2000);
+    ov.querySelector(".call-end").addEventListener("click",function(){
+      clearTimeout(connectT); clearInterval(tmr);
+      var s=startedAt?Math.floor((Date.now()-startedAt)/1000):0;
+      ov.remove();
+      toast("info","Call ended", startedAt ? "Duration "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0") : "No answer");
+    });
   }
 
   function doHelperSubmit(a,l,override){
