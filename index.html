@@ -495,6 +495,14 @@
   .call-overlay .call-mid{display:flex;flex-direction:column;justify-content:center;flex:1}
   .call-overlay .call-end{width:62px;height:62px;border-radius:50%;border:none;background:var(--alert);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transform:rotate(135deg)}
   .call-overlay .call-end svg{width:22px;height:22px}
+
+  /* payout / bank form */
+  .pay-intro{display:flex;gap:12px;align-items:flex-start;background:var(--primary-wash);border-radius:13px;padding:13px}
+  .pay-intro .pay-ic{width:38px;height:38px;flex:none;border-radius:10px;background:var(--app);color:var(--primary-deep);display:flex;align-items:center;justify-content:center}
+  .pay-intro .pay-t{font-size:14px;font-weight:800;letter-spacing:-0.01em}
+  .pay-intro .pay-s{font-size:12px;color:var(--primary-deep);line-height:1.45;margin-top:3px}
+  .pay-legal{font-size:11px;color:var(--muted);line-height:1.5;display:flex;gap:7px;align-items:flex-start}
+  .pay-lock{flex:none;font-size:9.5px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);background:var(--surface);border-radius:999px;padding:2px 7px;margin-top:1px}
   .hsearch{position:relative;margin-top:2px}
   .hsearch input{width:100%;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--app);border:1px solid var(--hair);border-radius:11px;padding:11px 12px 11px 36px;outline:none}
   .hsearch input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-wash)}
@@ -638,6 +646,55 @@
       </div>
     </section>
 
+    <section class="screen" id="view-payout" hidden>
+      <form class="form" id="payout-form" novalidate>
+        <div class="pay-intro">
+          <div class="pay-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M4 10v9h16v-9M9 19v-5h6v5"/></svg></div>
+          <div>
+            <div class="pay-t" id="pay-t">Add a bank account</div>
+            <div class="pay-s">Curbside pays your helper every Friday for the jobs you approved that week, and pulls the total from this account.</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="py-name">Name on account <span class="req">*</span></label>
+          <input type="text" id="py-name" autocomplete="name" placeholder="e.g. Alex Rivera">
+          <div class="err" id="e-py-name" hidden>Enter the name on the account.</div>
+        </div>
+
+        <div class="field">
+          <label>Account type <span class="req">*</span></label>
+          <div class="chips" id="py-type">
+            <button type="button" class="chip" data-type="checking" aria-pressed="true">Checking</button>
+            <button type="button" class="chip" data-type="savings" aria-pressed="false">Savings</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="py-routing">Routing number <span class="req">*</span></label>
+          <input type="text" id="py-routing" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="9 digits — e.g. 021000021">
+          <div class="err" id="e-py-routing" hidden>Enter a valid 9-digit routing number.</div>
+        </div>
+
+        <div class="field">
+          <label for="py-acct">Account number <span class="req">*</span></label>
+          <input type="text" id="py-acct" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="4–17 digits">
+          <div class="err" id="e-py-acct" hidden>Enter your account number.</div>
+        </div>
+
+        <div class="field">
+          <label for="py-acct2">Confirm account number <span class="req">*</span></label>
+          <input type="text" id="py-acct2" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="Re-enter it">
+          <div class="err" id="e-py-acct2" hidden>The account numbers don't match.</div>
+        </div>
+
+        <p class="pay-legal"><span class="pay-lock">Demo</span> Nothing is charged and no transfer happens here. In a live app this goes straight to the payment processor — Curbside keeps only the account type and last 4 digits.</p>
+      </form>
+      <div class="form-foot">
+        <button type="submit" form="payout-form" class="cta" id="payout-save">Save &amp; continue</button>
+      </div>
+    </section>
+
     <section class="screen" id="view-service" hidden>
       <div class="scroll"><div class="detail" id="service-body"></div></div>
     </section>
@@ -715,7 +772,7 @@
   /* ---------- state ---------- */
   var state=load();
   function blankProfile(){
-    return {onboarded:false,signedIn:false,role:null,authProvider:null,hasPassword:false,name:"",email:"",contact:"",channel:"email",idStatus:"unverified",idVerifiedAt:null,idDoc:null,properties:[],homePropertyId:null};
+    return {onboarded:false,signedIn:false,role:null,authProvider:null,hasPassword:false,name:"",email:"",contact:"",channel:"email",idStatus:"unverified",idVerifiedAt:null,idDoc:null,properties:[],homePropertyId:null,payout:null};
   }
   function migrateProfile(p){
     if(!p) return blankProfile();
@@ -1154,6 +1211,78 @@
         : (legs[0]==="out"?"Take-out":"Bring-in")+" at "+address.split(",")[0]);
   }
 
+  /* ---------- payout / bank account ---------- */
+  var payoutReturn="new";
+  function startNewJob(){
+    if(state.profile.payout){ go("new"); }
+    else { payoutReturn="new"; go("payout"); }
+  }
+  function validRouting(r){
+    if(!/^\d{9}$/.test(r)) return false;
+    var d=r.split("").map(Number);
+    return (3*(d[0]+d[3]+d[6]) + 7*(d[1]+d[4]+d[7]) + (d[2]+d[5]+d[8])) % 10 === 0;
+  }
+  function payoutSummary(p){
+    if(!p||!p.payout) return "";
+    var t=p.payout.accountType==="savings"?"Savings":"Checking";
+    return t+" ••••"+p.payout.accountLast4;
+  }
+  function prefillPayout(){
+    var p=state.profile.payout;
+    $("pay-t").textContent = p ? "Update your bank account" : "Add a bank account";
+    $("py-name").value = p ? (p.nameOnAccount||"") : (state.profile.name||"");
+    $("py-routing").value = p ? (p.routingNumber||"") : "";
+    $("py-acct").value=""; $("py-acct2").value="";
+    $("py-acct").placeholder = p ? ("•••• "+p.accountLast4+" — leave blank to keep") : "4–17 digits";
+    $("py-acct2").placeholder = p ? "Leave blank to keep, or re-enter" : "Re-enter it";
+    var type = p ? (p.accountType||"checking") : "checking";
+    document.querySelectorAll("#py-type .chip").forEach(function(c){
+      c.setAttribute("aria-pressed", String(c.dataset.type===type));
+    });
+    ["e-py-name","e-py-routing","e-py-acct","e-py-acct2"].forEach(function(id){ $(id).hidden=true; });
+    $("payout-save").textContent = payoutReturn==="new" && !p ? "Save & continue" : "Save bank account";
+  }
+  function savePayout(e){
+    e.preventDefault();
+    var existing=state.profile.payout;
+    var name=$("py-name").value.trim();
+    var typeBtn=document.querySelector("#py-type .chip[aria-pressed=true]");
+    var type=typeBtn?typeBtn.dataset.type:"checking";
+    var routing=$("py-routing").value.replace(/\D/g,"");
+    var acct=$("py-acct").value.replace(/\D/g,"");
+    var acct2=$("py-acct2").value.replace(/\D/g,"");
+    var keepAcct = existing && !acct && !acct2;
+    var ok=true;
+    $("e-py-name").hidden = name.length>=2; if(name.length<2) ok=false;
+    $("e-py-routing").hidden = validRouting(routing); if(!validRouting(routing)) ok=false;
+    if(keepAcct){
+      $("e-py-acct").hidden=true; $("e-py-acct2").hidden=true;
+    } else {
+      var acctOk=/^\d{4,17}$/.test(acct);
+      $("e-py-acct").hidden = acctOk; if(!acctOk) ok=false;
+      var matchOk = acctOk && acct===acct2;
+      $("e-py-acct2").hidden = matchOk; if(acctOk && !matchOk) ok=false;
+    }
+    if(!ok){
+      var fe=document.querySelector("#payout-form .err:not([hidden])");
+      if(fe) fe.scrollIntoView({block:"center",behavior:"smooth"});
+      return;
+    }
+    state.profile.payout={
+      nameOnAccount:name,
+      accountType:type,
+      routingNumber:routing,
+      accountLast4: keepAcct ? existing.accountLast4 : acct.slice(-4),
+      addedAt: existing ? existing.addedAt : Date.now(),
+      updatedAt: Date.now()
+    };
+    save();
+    var dest=payoutReturn; payoutReturn="new";
+    go(dest);
+    toast("info", existing?"Bank account updated":"Bank account saved",
+      payoutSummary(state.profile)+" · helper payouts run every Friday.");
+  }
+
   /* ---------- simulation ---------- */
   function simulateHelper(svcId){
     var f=findService(svcId); if(!f||f.svc.status!=="scheduled") return;
@@ -1268,6 +1397,7 @@
       back.addEventListener("click",chatBackTarget); t.appendChild(back);
       var title="";
       if(route.name==="new") title="New job";
+      else if(route.name==="payout") title=state.profile.payout?"Bank account":"Set up payouts";
       else if(route.name==="settings") title="Settings";
       else if(route.name==="inbox") title="Messages";
       else if(route.name==="service"){ var f=findService(route.param); title=f?f.job.address.split(",")[0]:"Service"; }
@@ -1284,6 +1414,7 @@
     }
   }
   function chatBackTarget(){
+    if(route.name==="payout") return go(payoutReturn==="settings"?"settings":"home");
     var k=route.name==="chat" ? (route.param||"") : "";
     if(k.indexOf("h:")===0) return go("hjob",k.slice(2));
     if(k.indexOf("o:")===0) return go("service",k.slice(2));
@@ -1291,13 +1422,14 @@
   }
 
   function show(id){
-    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob","view-chat","view-inbox"].forEach(function(v){ $(v).hidden=(v!==id); });
+    ["view-auth","view-home","view-new","view-payout","view-service","view-settings","view-listing","view-hjob","view-chat","view-inbox"].forEach(function(v){ $(v).hidden=(v!==id); });
   }
 
   function renderScreen(){
     if(route.name==="auth"){ show("view-auth"); renderAuth(); }
     else if(route.name==="home"){ show("view-home"); (state.profile.role==="helper"?renderHelperHome:renderHome)(); }
     else if(route.name==="new"){ show("view-new"); prefillNewJob(); }
+    else if(route.name==="payout"){ show("view-payout"); prefillPayout(); }
     else if(route.name==="inbox"){ show("view-inbox"); renderInbox(); }
     else if(route.name==="service"){ show("view-service"); renderService(route.param); }
     else if(route.name==="settings"){ show("view-settings"); renderSettings(); }
@@ -1390,7 +1522,7 @@
       hasPassword:!!authState.hasPassword,
       name:authState.name, email:authState.email||authState.contact, contact:authState.contact, channel:authState.channel,
       idStatus:"verified", idVerifiedAt:Date.now(), idDoc:authState.idDoc,
-      properties:pr, homePropertyId: pr[0] ? pr[0].id : null
+      properties:pr, homePropertyId: pr[0] ? pr[0].id : null, payout:null
     };
     if(!state.jobs.length){
       var s=seedJobs(authState.address);
@@ -2414,8 +2546,15 @@
     }
 
     var cta=el("button","cta"); cta.innerHTML=ICONS.plus+" Post a new job";
-    cta.addEventListener("click",function(){ go("new"); });
+    cta.addEventListener("click",startNewJob);
     body.appendChild(cta);
+
+    if(!state.profile.payout){
+      var pn=el("div","review-note");
+      pn.style.background="var(--sand-wash)"; pn.style.color="var(--sand-ink)";
+      pn.innerHTML=ICONS.cash+'<span>Add a bank account so your helper can be paid — we’ll ask when you post your first job.</span>';
+      body.appendChild(pn);
+    }
 
     if(!state.jobs.length){
       var e=el("div","empty");
@@ -2772,6 +2911,29 @@
     [rName,rContact,rId].forEach(function(r){ pc.appendChild(r); });
     b.appendChild(pc);
 
+    // ---- Payout / bank account ----
+    var payh=el("div"); payh.style.cssText="display:flex;align-items:center;gap:8px;margin:20px 2px 8px";
+    payh.innerHTML='<span class="eyebrow" style="font-size:10.5px;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);font-weight:800">Payouts</span>';
+    b.appendChild(payh);
+    var payCard=el("div","prof-card");
+    if(p.payout){
+      var rBank=el("div","prof-row");
+      rBank.innerHTML='<span class="k">Account</span><span class="v">'+esc(payoutSummary(p))+'</span>';
+      var eBank=el("button","edit","Update");
+      eBank.addEventListener("click",function(){ payoutReturn="settings"; go("payout"); });
+      rBank.appendChild(eBank); payCard.appendChild(rBank);
+      var rRt=el("div","prof-row");
+      rRt.innerHTML='<span class="k">Routing</span><span class="v" style="font-weight:400;color:var(--muted)">'+esc(p.payout.routingNumber)+'</span>';
+      payCard.appendChild(rRt);
+      payCard.appendChild(el("p","hint","Helper payouts run every Friday and are pulled from this account. Simulated in this demo."));
+    } else {
+      payCard.appendChild(el("p","hint","No bank account yet. Add one so your helper can be paid — we’ll also ask when you post your first job."));
+      var addBank=el("button","cta ghost"); addBank.textContent="Add a bank account"; addBank.style.marginTop="6px";
+      addBank.addEventListener("click",function(){ payoutReturn="settings"; go("payout"); });
+      payCard.appendChild(addBank);
+    }
+    b.appendChild(payCard);
+
     // ---- Properties ----
     var ph=el("div"); ph.style.cssText="display:flex;align-items:center;gap:8px;margin:20px 2px 8px";
     ph.innerHTML='<span class="eyebrow" style="font-size:10.5px;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);font-weight:800">Your properties</span>';
@@ -2925,6 +3087,16 @@
     ci.addEventListener("input",function(){ $("chat-send").disabled=!this.value.trim(); });
     ci.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); sendChatMsg(); } });
     $("chat-send").addEventListener("click",sendChatMsg);
+
+    $("payout-form").addEventListener("submit",savePayout);
+    document.querySelectorAll("#py-type .chip").forEach(function(c){
+      c.addEventListener("click",function(){
+        document.querySelectorAll("#py-type .chip").forEach(function(x){ x.setAttribute("aria-pressed", String(x===c)); });
+      });
+    });
+    ["py-routing","py-acct","py-acct2"].forEach(function(id){
+      $(id).addEventListener("input",function(){ this.value=this.value.replace(/\D/g,""); });
+    });
   }
 
   function wireAddressAutocomplete(){
