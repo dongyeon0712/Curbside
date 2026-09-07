@@ -1177,14 +1177,28 @@
 
   // called when auth (google or code) succeeds
   function authSucceeded(){
-    if(state.profile.onboarded && state.profile.idStatus==="verified"){
-      state.profile.signedIn=true;
-      state.profile.authProvider=authState.gaccount?"google":state.profile.authProvider||"email";
-      if(authState.name) state.profile.name=authState.name;
-      if(authState.email) state.profile.email=authState.email;
-      var nm=(state.profile.name||"there").split(" ")[0];
+    // An existing account: either recognised on this device, or the user chose "Sign in".
+    var returning = authState.mode==="signin" || (state.profile.onboarded && state.profile.idStatus==="verified");
+    if(returning){
+      var p=state.profile;
+      p.onboarded=true; p.signedIn=true;
+      p.idStatus="verified";
+      if(!p.idVerifiedAt) p.idVerifiedAt=Date.now()-30*86400000;
+      p.authProvider=authState.gaccount?"google":(p.authProvider||"email");
+      if(authState.name) p.name=authState.name;
+      if(authState.email){ p.email=authState.email; p.contact=authState.email; }
+      if(authState.hasPassword) p.hasPassword=true;
+      // make sure the services page has their properties + a bit of history
+      if(!props().length){
+        p.properties=[{id:uid(),label:"Home",address:"1424 Poplar St, Arlington VA",
+          instructions:"Bins are on the left side of the garage behind the gate (code 4417). Leave a 3 ft gap between the carts at the curb.",
+          photos:[refPhoto("pickup")]}];
+        p.homePropertyId=p.properties[0].id;
+      }
+      if(!state.jobs.length){ var s=seedJobs(props()[0].address); state.jobs=s.jobs; state.notifications=s.notifications; }
+      var nm=(p.name||"there").split(" ")[0];
       freshAuth(); save(); go("home");
-      toast("info","Welcome back, "+nm,"");
+      toast("info","Welcome back, "+nm,"Post a new job whenever you need one.");
     } else {
       authState.step="id"; renderAuth();
     }
@@ -1275,6 +1289,16 @@
     b.appendChild(row);
   }
 
+  function pickGoogle(a){
+    authState.gaccount=a;
+    if(authState.mode==="signin"){
+      authState.name=a.name; authState.email=a.email; authState.contact=a.email; authState.channel="email";
+      authSucceeded();
+    } else {
+      authState.step="gconsent"; renderAuth();
+    }
+  }
+
   function authGpick(b){
     b.appendChild(el("span","sim-badge",'Simulated Google'));
     var card=el("div","gcard");
@@ -1284,7 +1308,7 @@
       var r=el("button","gacc");
       r.innerHTML='<span class="av" style="background:'+a.hue+'">'+initials(a.name)+'</span>'+
         '<span class="ai"><span class="an">'+esc(a.name)+'</span><span class="ae">'+esc(a.email)+'</span></span>';
-      r.addEventListener("click",function(){ authState.gaccount=a; authState.step="gconsent"; renderAuth(); });
+      r.addEventListener("click",function(){ pickGoogle(a); });
       card.appendChild(r);
     });
     var other=el("button","gacc");
@@ -1311,7 +1335,7 @@
     btn.addEventListener("click",function(){
       var n=$("g-name").value.trim(), e=$("g-email").value.trim();
       if(n.length<2 || !/^\S+@\S+\.\S+$/.test(e)){ err.hidden=false; err.textContent="Enter a name and a valid Gmail address."; return; }
-      authState.gaccount={name:n,email:e,hue:"#3A5954"}; authState.step="gconsent"; renderAuth();
+      pickGoogle({name:n,email:e,hue:"#3A5954"});
     });
     row.appendChild(btn);
     var back=el("button","linkbtn"); back.textContent="Back"; back.addEventListener("click",function(){ authState.step="gpick"; renderAuth(); });
