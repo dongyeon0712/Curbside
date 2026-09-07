@@ -445,6 +445,33 @@
   .gscopes ul{margin:6px 0 0;padding-left:18px}
   .gnote{font-size:11px;color:var(--muted);border-top:1px solid var(--hair-soft);padding-top:10px;line-height:1.5}
 
+  /* helper flow */
+  .linkbtn{background:none;border:none;color:var(--primary);font-family:var(--font);font-size:12.5px;font-weight:700;cursor:pointer;padding:4px 0}
+  .hsearch{position:relative;margin-top:2px}
+  .hsearch input{width:100%;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--app);border:1px solid var(--hair);border-radius:11px;padding:11px 12px 11px 36px;outline:none}
+  .hsearch input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-wash)}
+  .hsearch .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;display:flex}
+  .earn-strip{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);background:var(--surface);border-radius:11px;padding:9px 12px}
+  .earn-strip b{color:var(--ink);font-weight:800}
+  .jtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
+  .jtag{font-size:10px;font-weight:800;letter-spacing:0.03em;padding:3px 8px;border-radius:999px;background:var(--primary-wash);color:var(--primary-deep)}
+  .jdist{margin-left:auto;font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+  .map-approx{position:relative;height:132px;border:1px solid var(--hair);border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#EDF2F1,#E1E9E7)}
+  .map-approx::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--hair-soft) 1px,transparent 1px),linear-gradient(90deg,var(--hair-soft) 1px,transparent 1px);background-size:26px 26px;opacity:.7}
+  .map-approx .ring{position:absolute;left:50%;top:50%;width:96px;height:96px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(58,89,84,.13);border:1.5px solid rgba(58,89,84,.42)}
+  .map-approx .mp{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);color:var(--primary-deep)}
+  .map-approx .cap{position:absolute;left:8px;bottom:8px;font-size:9.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);background:var(--app);border-radius:6px;padding:2px 6px}
+  .addr-link{display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;background:var(--primary-wash);border:none;border-radius:11px;padding:11px 12px;margin-top:10px;font-family:var(--font);font-size:12.5px;font-weight:700;color:var(--primary-deep);text-decoration:none;line-height:1.4}
+  .addr-link .go{margin-left:auto;flex:none}
+  .when-row{display:flex;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--hair-soft)}
+  .when-row:last-child{border-bottom:none}
+  .when-row .wl{font-weight:700;min-width:72px;flex:none}
+  .when-row .wv{color:var(--muted)}
+  .lc-confirm{display:flex;flex-direction:column;gap:9px;background:var(--alert-wash);border-radius:12px;padding:12px;margin-top:2px}
+  .lc-confirm .lc-t{font-size:12.5px;font-weight:800;color:var(--alert);display:flex;gap:6px;align-items:center}
+  .lc-confirm .lc-s{font-size:12px;color:var(--alert);line-height:1.45}
+  .lc-confirm textarea{background:var(--app)}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important};.spinner{animation-duration:1.6s}}
   svg{display:block}
 </style>
@@ -458,7 +485,7 @@
 
     <section class="screen" id="view-home" hidden>
       <div class="scroll"><div class="home-pad" id="home-body"></div>
-        <p class="foot-note">Prototype — the helper's arrival, completion, and verification photo are simulated so you can walk the whole flow. Your jobs are saved in this browser only.</p>
+        <p class="foot-note" id="home-foot">Prototype — the helper's arrival, completion, and verification photo are simulated so you can walk the whole flow. Your jobs are saved in this browser only.</p>
       </div>
     </section>
 
@@ -570,6 +597,14 @@
     <section class="screen" id="view-settings" hidden>
       <div class="scroll"><div class="detail" id="settings-body"></div></div>
     </section>
+
+    <section class="screen" id="view-listing" hidden>
+      <div class="scroll"><div class="detail" id="listing-body"></div></div>
+    </section>
+
+    <section class="screen" id="view-hjob" hidden>
+      <div class="scroll"><div class="detail" id="hjob-body"></div></div>
+    </section>
   </main>
 </div>
 <div id="toasts"></div>
@@ -636,7 +671,7 @@
     var raw=null;
     try{ raw=localStorage.getItem(KEY); }catch(e){}
     if(raw){ try{ var s=JSON.parse(raw); if(s&&s.jobs){ s.profile=migrateProfile(s.profile); return s; } }catch(e){} }
-    return {jobs:[],notifications:[],settings:{desktopAlerts:false,fastDispute:false},profile:blankProfile()};
+    return {jobs:[],notifications:[],settings:{desktopAlerts:false,fastDispute:false,helperGpsFail:false},profile:blankProfile()};
   }
   function props(){ return state.profile.properties||[]; }
   function propById(id){ return props().filter(function(p){return p.id===id;})[0]||null; }
@@ -1133,9 +1168,11 @@
       var sp=el("div","sp"); t.appendChild(sp);
       var set=el("button","icon-btn"); set.setAttribute("aria-label","Settings"); set.innerHTML=ICONS.cog;
       set.addEventListener("click",function(){ go("settings"); }); t.appendChild(set);
-      var bell=el("button","icon-btn"); bell.setAttribute("aria-label","Notifications"); bell.innerHTML=ICONS.bell;
-      var u=unreadCount(); if(u) bell.appendChild(el("span","badge",u>9?"9+":String(u)));
-      bell.addEventListener("click",openSheet); t.appendChild(bell);
+      if(state.profile.role!=="helper"){
+        var bell=el("button","icon-btn"); bell.setAttribute("aria-label","Notifications"); bell.innerHTML=ICONS.bell;
+        var u=unreadCount(); if(u) bell.appendChild(el("span","badge",u>9?"9+":String(u)));
+        bell.addEventListener("click",openSheet); t.appendChild(bell);
+      }
     } else {
       var back=el("button","back-btn"); back.setAttribute("aria-label","Back"); back.innerHTML=ICONS.back;
       back.addEventListener("click",function(){ go("home"); }); t.appendChild(back);
@@ -1143,20 +1180,24 @@
       if(route.name==="new") title="New job";
       else if(route.name==="settings") title="Settings";
       else if(route.name==="service"){ var f=findService(route.param); title=f?f.job.address.split(",")[0]:"Service"; }
+      else if(route.name==="listing") title="Job details";
+      else if(route.name==="hjob"){ var A=acceptedById(route.param); var LL=A&&listingById(A.listingId); title=LL?LL.fullAddress.split(",")[0]:"Your job"; }
       t.appendChild(el("h1",null,esc(title)));
     }
   }
 
   function show(id){
-    ["view-auth","view-home","view-new","view-service","view-settings"].forEach(function(v){ $(v).hidden=(v!==id); });
+    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob"].forEach(function(v){ $(v).hidden=(v!==id); });
   }
 
   function renderScreen(){
     if(route.name==="auth"){ show("view-auth"); renderAuth(); }
-    else if(route.name==="home"){ show("view-home"); renderHome(); }
+    else if(route.name==="home"){ show("view-home"); (state.profile.role==="helper"?renderHelperHome:renderHome)(); }
     else if(route.name==="new"){ show("view-new"); prefillNewJob(); }
     else if(route.name==="service"){ show("view-service"); renderService(route.param); }
     else if(route.name==="settings"){ show("view-settings"); renderSettings(); }
+    else if(route.name==="listing"){ show("view-listing"); renderListing(route.param); }
+    else if(route.name==="hjob"){ show("view-hjob"); renderHJob(route.param); }
   }
 
   /* ---------- auth / onboarding ---------- */
@@ -1183,7 +1224,7 @@
       role: known ? (state.profile.role||"homeowner") : null,
       mode: known ? "signin" : "signup",
       name:"",email:"",contact:"",channel:"email",hasPassword:false,code:"",
-      idDoc:null,idStep:"capture",address:"",notes:"",binPhotos:[],gaccount:null
+      idDoc:null,idStep:"capture",idPrecleared:false,address:"",notes:"",binPhotos:[],gaccount:null
     };
   }
   freshAuth();
@@ -1196,31 +1237,40 @@
 
   // called when auth (google or code) succeeds
   function authSucceeded(){
-    // An existing account: either recognised on this device, or the user chose "Sign in".
-    var returning = authState.mode==="signin" || (state.profile.onboarded && state.profile.idStatus==="verified");
+    var role=authState.role||"homeowner";
+    var p=state.profile;
+    var sameRole=p.onboarded && p.role===role;
+    // An existing account on this device: same role, or the user tapped "Sign in".
+    var returning = sameRole || (authState.mode==="signin" && p.onboarded);
     if(returning){
-      var p=state.profile;
-      p.onboarded=true; p.signedIn=true; p.role="homeowner";
+      p.onboarded=true; p.signedIn=true; p.role=role;
       p.idStatus="verified";
       if(!p.idVerifiedAt) p.idVerifiedAt=Date.now()-30*86400000;
       p.authProvider=authState.gaccount?"google":(p.authProvider||"email");
       if(authState.name) p.name=authState.name;
       if(authState.email){ p.email=authState.email; p.contact=authState.email; }
       if(authState.hasPassword) p.hasPassword=true;
-      // make sure the services page has their properties + a bit of history
-      if(!props().length){
-        p.properties=[{id:uid(),label:"Home",address:"1424 Poplar St, Arlington VA",
-          instructions:"Bins are on the left side of the garage behind the gate (code 4417). Leave a 3 ft gap between the carts at the curb.",
-          photos:[refPhoto("pickup")]}];
-        p.homePropertyId=p.properties[0].id;
-      }
-      if(!state.jobs.length){ var s=seedJobs(props()[0].address); state.jobs=s.jobs; state.notifications=s.notifications; }
       var nm=(p.name||"there").split(" ")[0];
-      freshAuth(); save(); go("home");
-      toast("info","Welcome back, "+nm,"Post a new job whenever you need one.");
-    } else {
-      authState.step="id"; renderAuth();
+      if(role==="helper"){
+        ensureHelperSeed();
+        freshAuth(); save(); go("home");
+        toast("info","Welcome back, "+nm,"Fresh jobs are waiting near you.");
+      } else {
+        if(!props().length){
+          p.properties=[{id:uid(),label:"Home",address:"1424 Poplar St, Arlington VA",
+            instructions:"Bins are on the left side of the garage behind the gate (code 4417). Leave a 3 ft gap between the carts at the curb.",
+            photos:[refPhoto("pickup")]}];
+          p.homePropertyId=p.properties[0].id;
+        }
+        if(!state.jobs.length){ var s=seedJobs(props()[0].address); state.jobs=s.jobs; state.notifications=s.notifications; }
+        freshAuth(); save(); go("home");
+        toast("info","Welcome back, "+nm,"Post a new job whenever you need one.");
+      }
+      return;
     }
+    // New account (or a homeowner adding the helper role) → verify ID next.
+    authState.idPrecleared = p.onboarded && p.idStatus==="verified";
+    authState.step="id"; renderAuth();
   }
 
   function finishOnboarding(){
@@ -1242,6 +1292,23 @@
     }
     freshAuth(); save(); go("home");
     toast("info","Welcome to Curbside","Verified and ready — sample jobs added so you can explore.");
+  }
+
+  function finishHelperOnboarding(){
+    var g=authState.gaccount, p=state.profile;
+    state.profile=Object.assign({},p,{
+      onboarded:true, signedIn:true, role:"helper",
+      authProvider:g?"google":"email",
+      hasPassword:!!authState.hasPassword||!!p.hasPassword,
+      name:authState.name||p.name,
+      email:authState.email||authState.contact||p.email,
+      contact:authState.contact||authState.email||p.contact,
+      channel:"email",
+      idStatus:"verified", idVerifiedAt:p.idVerifiedAt||Date.now(), idDoc:authState.idDoc||p.idDoc
+    });
+    ensureHelperSeed();
+    freshAuth(); save(); go("home");
+    toast("info","You're verified","Jobs near you are ready — accept one to get started.");
   }
 
   function wireMiniAC(inputId,panelId,listId,onPick){
@@ -1274,17 +1341,20 @@
     });
   }
 
-  var AUTH_DOT={welcome:1,email:1,code:1,gpick:1,gtype:1,gconsent:1,id:2,address:3,done:4};
+  var AUTH_DOT_HO={welcome:1,email:1,code:1,gpick:1,gtype:1,gconsent:1,id:2,address:3,done:4};
+  var AUTH_DOT_HE={welcome:1,email:1,code:1,gpick:1,gtype:1,gconsent:1,id:2,done:3};
   function renderAuth(){
     var b=$("auth-body"); b.innerHTML="";
     b.appendChild(el("div","brand",'<span class="mk"></span>Curbside'));
-    if(authState.step!=="role" && authState.step!=="helper"){
-      var idx=AUTH_DOT[authState.step]||1;
+    if(authState.step!=="role"){
+      var helper=authState.role==="helper";
+      var total=helper?3:4;
+      var idx=(helper?AUTH_DOT_HE:AUTH_DOT_HO)[authState.step]||1;
       var dots=el("div","steps");
-      for(var i=1;i<=4;i++) dots.appendChild(el("i", i<idx?"done":(i===idx?"on":"")));
+      for(var i=1;i<=total;i++) dots.appendChild(el("i", i<idx?"done":(i===idx?"on":"")));
       b.appendChild(dots);
     }
-    ({role:authRole,helper:authHelper,welcome:authWelcome,email:authEmail,code:authCode,gpick:authGpick,gtype:authGtype,gconsent:authGconsent,id:authId,address:authAddress,done:authDone}[authState.step])(b);
+    ({role:authRole,welcome:authWelcome,email:authEmail,code:authCode,gpick:authGpick,gtype:authGtype,gconsent:authGconsent,id:authId,address:authAddress,done:authDone}[authState.step])(b);
   }
 
   function authRole(b){
@@ -1295,45 +1365,34 @@
     ho.innerHTML='<span class="rc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11 12 4l8 7M6 10v9h12v-9"/></svg></span>'+
       '<span><span class="rc-t">I'+"'"+'m a homeowner</span><span class="rc-s">Post a job when you'+"'"+'re away. A nearby helper takes your bins out and back, and sends a photo.</span></span>'+
       '<span class="rc-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>';
-    ho.addEventListener("click",function(){ authState.role="homeowner"; authState.step="welcome"; renderAuth(); });
+    ho.addEventListener("click",function(){
+      authState.role="homeowner";
+      authState.mode=(state.profile.onboarded && state.profile.role==="homeowner")?"signin":"signup";
+      authState.step="welcome"; renderAuth();
+    });
     b.appendChild(ho);
 
     var hp=el("button","role-card");
     hp.innerHTML='<span class="rc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg></span>'+
       '<span><span class="rc-t">I want to earn as a helper</span><span class="rc-s">Pick up bin jobs near you, snap a verification photo, get paid weekly.</span></span>'+
       '<span class="rc-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>';
-    hp.addEventListener("click",function(){ authState.role="helper"; authState.step="helper"; renderAuth(); });
-    b.appendChild(hp);
-  }
-
-  function authHelper(b){
-    b.appendChild(el("span","sim-badge","Coming soon"));
-    b.appendChild(el("h2",null,"Helper sign-up isn't open yet"));
-    b.appendChild(el("p","lede","We're onboarding homeowners first. Leave your email and we'll message you the moment helper accounts go live in your area."));
-    var f=el("div","field");
-    f.innerHTML='<label for="h-email">Email address</label><input type="email" id="h-email" placeholder="you@email.com" autocomplete="email">';
-    b.appendChild(f);
-    var err=el("div","err"); err.hidden=true; b.appendChild(err);
-    var row=el("div","btn-row");
-    var join=el("button","cta"); join.textContent="Join the waitlist";
-    join.addEventListener("click",function(){
-      var e=$("h-email").value.trim();
-      if(!/^\S+@\S+\.\S+$/.test(e)){ err.hidden=false; err.textContent="Enter a valid email address."; return; }
-      toast("info","You're on the list","We'll email "+e+" when helper sign-up opens.");
-      authState.step="role"; renderAuth();
+    hp.addEventListener("click",function(){
+      authState.role="helper";
+      authState.mode=(state.profile.onboarded && state.profile.role==="helper")?"signin":"signup";
+      authState.step="welcome"; renderAuth();
     });
-    row.appendChild(join);
-    var back=el("button","linkbtn"); back.textContent="Back"; back.addEventListener("click",function(){ authState.step="role"; renderAuth(); });
-    row.appendChild(back);
-    b.appendChild(row);
+    b.appendChild(hp);
   }
 
   function authWelcome(b){
     var signin=authState.mode==="signin";
-    b.appendChild(el("h2",null,signin?"Sign in to Curbside":"Create your homeowner account"));
+    var helper=authState.role==="helper";
+    b.appendChild(el("h2",null,signin?"Sign in to Curbside":("Create your "+(helper?"helper":"homeowner")+" account")));
     b.appendChild(el("p","lede",signin
       ? "Welcome back. Use Google or your email and password."
-      : "Post a job, a nearby helper takes the bins out, you approve the photo. Sign up to get started."));
+      : (helper
+          ? "Accept bin jobs near you, take a verification photo, get paid weekly. Sign up to start."
+          : "Post a job, a nearby helper takes the bins out, you approve the photo. Sign up to get started.")));
     var g=el("button","gbtn"); g.innerHTML=googleG(18)+'<span>'+(signin?"Sign in":"Sign up")+' with Google</span>';
     g.addEventListener("click",function(){ authState.step="gpick"; renderAuth(); });
     b.appendChild(g);
@@ -1347,7 +1406,7 @@
     toggle.textContent=signin?"New here? Create an account":"Already have an account? Sign in";
     toggle.addEventListener("click",function(){ authState.mode=signin?"signup":"signin"; renderAuth(); });
     row.appendChild(toggle);
-    var rback=el("button","linkbtn"); rback.style.alignSelf="center"; rback.textContent="Not a homeowner? Go back";
+    var rback=el("button","linkbtn"); rback.style.alignSelf="center"; rback.textContent="Choose a different role";
     rback.addEventListener("click",function(){ authState.step="role"; renderAuth(); });
     row.appendChild(rback);
     row.appendChild(el("p","legal",'Sample flow — no real Google account is connected. By continuing you agree to the Terms and Privacy Policy.'));
@@ -1505,6 +1564,16 @@
   }
 
   function authId(b){
+    var nextAfterId=function(){ authState.step=authState.role==="helper"?"done":"address"; renderAuth(); };
+    if(authState.idPrecleared && authState.idStep==="capture"){
+      b.appendChild(el("div","verified-mark",BIGCHECK));
+      b.appendChild(el("h2",null,"Identity already verified"));
+      b.appendChild(el("p","lede","Your ID check from before still applies — no need to redo it."));
+      var prow=el("div","btn-row"), pbtn=el("button","cta"); pbtn.textContent="Continue";
+      pbtn.addEventListener("click",nextAfterId);
+      prow.appendChild(pbtn); b.appendChild(prow);
+      return;
+    }
     b.appendChild(el("span","sim-badge","Simulated in this demo"));
     if(authState.idStep==="verifying"){
       var v=el("div","verifying");
@@ -1522,7 +1591,7 @@
         '<div class="c">'+ICONS.check+'<span>Not expired</span></div>';
       b.appendChild(cl);
       var row=el("div","btn-row"); var btn=el("button","cta"); btn.textContent="Continue";
-      btn.addEventListener("click",function(){ authState.step="address"; renderAuth(); });
+      btn.addEventListener("click",nextAfterId);
       row.appendChild(btn); b.appendChild(row);
       return;
     }
@@ -1601,18 +1670,26 @@
   }
 
   function authDone(b){
+    var helper=authState.role==="helper";
     b.appendChild(el("div","verified-mark",BIGCHECK));
     b.appendChild(el("h2",null,"You're all set, "+esc((authState.name||"there").split(" ")[0])));
     var cl=el("div","checklist");
-    cl.innerHTML='<div class="c">'+ICONS.check+'<span>'+(authState.gaccount?"Connected ":"Account for ")+esc(authState.email||authState.contact)+'</span></div>'+
-      '<div class="c">'+ICONS.check+'<span>Identity verified</span></div>'+
-      (authState.address?'<div class="c">'+ICONS.check+'<span>Home address saved — '+esc(authState.address.split(",")[0])+'</span></div>':'')+
-      (authState.notes?'<div class="c">'+ICONS.check+'<span>Default helper instructions saved</span></div>':'')+
-      ((authState.binPhotos&&authState.binPhotos.length)?'<div class="c">'+ICONS.check+'<span>'+authState.binPhotos.length+' bin photo'+(authState.binPhotos.length>1?"s":"")+' saved</span></div>':'')+
-      (authState.gaccount?'<div class="c">'+ICONS.check+'<span>Get back in anytime with Google — no password</span></div>':'');
+    if(helper){
+      cl.innerHTML='<div class="c">'+ICONS.check+'<span>'+(authState.gaccount?"Connected ":"Account for ")+esc(authState.email||authState.contact)+'</span></div>'+
+        '<div class="c">'+ICONS.check+'<span>Identity verified</span></div>'+
+        '<div class="c">'+ICONS.check+'<span>Ready to accept jobs near you</span></div>'+
+        (authState.gaccount?'<div class="c">'+ICONS.check+'<span>Get back in anytime with Google — no password</span></div>':'');
+    } else {
+      cl.innerHTML='<div class="c">'+ICONS.check+'<span>'+(authState.gaccount?"Connected ":"Account for ")+esc(authState.email||authState.contact)+'</span></div>'+
+        '<div class="c">'+ICONS.check+'<span>Identity verified</span></div>'+
+        (authState.address?'<div class="c">'+ICONS.check+'<span>Home address saved — '+esc(authState.address.split(",")[0])+'</span></div>':'')+
+        (authState.notes?'<div class="c">'+ICONS.check+'<span>Default helper instructions saved</span></div>':'')+
+        ((authState.binPhotos&&authState.binPhotos.length)?'<div class="c">'+ICONS.check+'<span>'+authState.binPhotos.length+' bin photo'+(authState.binPhotos.length>1?"s":"")+' saved</span></div>':'')+
+        (authState.gaccount?'<div class="c">'+ICONS.check+'<span>Get back in anytime with Google — no password</span></div>':'');
+    }
     b.appendChild(cl);
-    var row=el("div","btn-row"); var btn=el("button","cta"); btn.textContent="Enter Curbside";
-    btn.addEventListener("click",finishOnboarding);
+    var row=el("div","btn-row"); var btn=el("button","cta"); btn.textContent=helper?"Start finding jobs":"Enter Curbside";
+    btn.addEventListener("click",helper?finishHelperOnboarding:finishOnboarding);
     row.appendChild(btn); b.appendChild(row);
   }
 
@@ -1674,9 +1751,363 @@
     } else { btn.hidden=true; }
   }
 
+  /* ================= HELPER SIDE ================= */
+  function ensureHelperSeed(){
+    if(!state.helper) state.helper={seeded:false,searchArea:"",listings:[],accepted:[]};
+    if(state.helper.seeded) return;
+    var now=Date.now(), DAY=86400000;
+    function d(off){ return isoDate(new Date(now+off*DAY)); }
+    state.helper.listings=[
+      {id:uid(),homeownerFirst:"Dana",area:"Arlington, VA 22205",streetApprox:"N Maple St area",
+        fullAddress:"1424 N Maple St, Arlington, VA 22205",
+        bins:["Trash","Recycling"],legs:{out:true,in:true},
+        outDate:d(1),outTime:"6:00 PM",inDate:d(2),inTime:"8:00 AM",
+        notes:"Bins are on the left side of the garage behind the wooden gate (latch, no lock). Two 96-gal carts — leave a 3 ft gap at the curb, wheels toward the street.",
+        photos:[refPhoto("pickup")],pay:14,distanceMi:0.4,postedAt:now-3600000},
+      {id:uid(),homeownerFirst:"Marcus",area:"Arlington, VA 22204",streetApprox:"Columbia Pike area",
+        fullAddress:"3110 Columbia Pike, Arlington, VA 22204",
+        bins:["Trash"],legs:{out:true,in:false},
+        outDate:d(1),outTime:"7:00 AM",inDate:"",inTime:"",
+        notes:"Single trash cart behind the side fence. The latch sticks — lift up while you pull. Curb spot is just past the mailbox.",
+        photos:[refPhoto("pickup")],pay:9,distanceMi:1.1,postedAt:now-7200000},
+      {id:uid(),homeownerFirst:"Priya",area:"Alexandria, VA 22314",streetApprox:"Prince St area",
+        fullAddress:"512 Prince St, Alexandria, VA 22314",
+        bins:["Trash","Recycling","Compost"],legs:{out:false,in:true},
+        outDate:"",outTime:"",inDate:d(1),inTime:"9:00 PM",
+        notes:"Three bins are already at the curb from this morning — please just bring them back to the covered nook beside the front steps. Gate code 4417.",
+        photos:[refPhoto("dropoff")],pay:11,distanceMi:2.6,postedAt:now-1800000,forceGpsFail:true},
+      {id:uid(),homeownerFirst:"Ellen",area:"Arlington, VA 22207",streetApprox:"Cedar Ln area",
+        fullAddress:"908 Cedar Ln, Arlington, VA 22207",
+        bins:["Trash","Yard waste"],legs:{out:true,in:true},
+        outDate:d(2),outTime:"6:30 PM",inDate:d(3),inTime:"8:00 AM",
+        notes:"Carts live in the garage — opener code 2231 on the keypad by the side door. Yard-waste paper bags go next to the cart at the curb.",
+        photos:[refPhoto("pickup")],pay:15,distanceMi:0.8,postedAt:now-5400000}
+    ];
+    state.helper.accepted=[];
+    state.helper.seeded=true;
+  }
+  function listingById(id){ return ((state.helper&&state.helper.listings)||[]).filter(function(l){return l.id===id;})[0]||null; }
+  function acceptedById(id){ return ((state.helper&&state.helper.accepted)||[]).filter(function(a){return a.id===id;})[0]||null; }
+  function isAccepted(listingId){ return ((state.helper&&state.helper.accepted)||[]).some(function(a){return a.listingId===listingId;}); }
+  function legsLabel(legs){ var x=[]; if(legs.out)x.push("Take bins out"); if(legs.in)x.push("Bring bins in"); return x.join(" + ")||"Bin job"; }
+  function firstLegDate(l){
+    var ts=[];
+    if(l.legs.out&&l.outDate) ts.push(tsFromDate(l.outDate,l.outTime));
+    if(l.legs.in&&l.inDate) ts.push(tsFromDate(l.inDate,l.inTime));
+    return ts.length?Math.min.apply(null,ts):Date.now();
+  }
+  function mapsHref(addr){ return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(addr); }
+  function whenRow(k,v){ var r=el("div","when-row"); r.innerHTML='<span class="wl">'+esc(k)+'</span><span class="wv">'+esc(v)+'</span>'; return r; }
+  function simHelperGps(l){
+    if(state.settings.helperGpsFail || l.forceGpsFail) return {ok:false, offMi:(l.forceGpsFail?0.6:0.4)};
+    return {ok:true, offMi:0};
+  }
+
+  function renderHelperHome(){
+    ensureHelperSeed();
+    var body=$("home-body"); body.innerHTML="";
+    var foot=$("home-foot"); if(foot) foot.textContent="Prototype — job listings, the GPS check and payouts are simulated. Your activity is saved in this browser only.";
+    var H=state.helper;
+    var mine=H.accepted.map(function(a){ return {a:a,l:listingById(a.listingId)}; }).filter(function(x){return x.l;});
+    var paid=mine.filter(function(x){return x.a.status==="paid";});
+    var earn=paid.reduce(function(s,x){return s+x.l.pay;},0);
+    var openList=H.listings.filter(function(l){ return !isAccepted(l.id); });
+
+    var g=el("div","greeting");
+    g.innerHTML='<h2>Jobs near you</h2><p>'+openList.length+' available'+(mine.length?' &middot; '+mine.length+' of yours':'')+'</p>';
+    body.appendChild(g);
+
+    var strip=el("div","earn-strip");
+    strip.innerHTML=ICONS.cash+'<span>This week: <b>$'+earn.toFixed(0)+'</b> from '+paid.length+' job'+(paid.length!==1?"s":"")+' &middot; paid out Friday</span>';
+    body.appendChild(strip);
+
+    var sc=el("div","hsearch");
+    sc.innerHTML='<span class="si">'+ICONS.pin+'</span><input type="text" id="h-search" placeholder="Search a city, ZIP or street" autocomplete="off">';
+    body.appendChild(sc);
+
+    if(mine.length){
+      var mg=el("div","group");
+      mg.appendChild(el("div","lbl",'Your jobs<span class="n">'+mine.length+'</span>'));
+      mine.sort(function(a,b){return b.a.acceptedAt-a.a.acceptedAt;}).forEach(function(x){ mg.appendChild(acceptedCard(x.a,x.l)); });
+      body.appendChild(mg);
+    }
+
+    var ag=el("div","group");
+    var lbl=el("div","lbl",'Available now<span class="n">'+openList.length+'</span>');
+    ag.appendChild(lbl);
+    var emptyEl=el("div","empty");
+    emptyEl.innerHTML='<div class="ic">'+ICONS.truck+'</div><p>No open jobs match that search.</p>';
+    emptyEl.hidden=true;
+    openList.sort(function(a,b){return a.distanceMi-b.distanceMi;}).forEach(function(l){ ag.appendChild(listingCard(l)); });
+    ag.appendChild(emptyEl);
+    if(!openList.length){
+      emptyEl.querySelector("p").textContent="No open jobs right now — check back this evening.";
+      emptyEl.hidden=false;
+    }
+    body.appendChild(ag);
+
+    var s=$("h-search");
+    s.value=H.searchArea||"";
+    function applyFilter(){
+      var q=(s.value||"").trim().toLowerCase();
+      H.searchArea=s.value; save();
+      var vis=0;
+      ag.querySelectorAll(".svc[data-hay]").forEach(function(card){
+        var m=!q || card.getAttribute("data-hay").indexOf(q)>-1;
+        card.hidden=!m; if(m) vis++;
+      });
+      lbl.querySelector(".n").textContent=vis;
+      if(vis===0){
+        emptyEl.querySelector("p").textContent = q ? 'No open jobs match "'+s.value.trim()+'".' : "No open jobs right now — check back this evening.";
+        emptyEl.hidden=false;
+      } else emptyEl.hidden=true;
+    }
+    s.addEventListener("input",applyFilter);
+    if(H.searchArea) applyFilter();
+  }
+
+  function listingCard(l){
+    var c=el("button","svc");
+    c.setAttribute("data-hay",(l.area+" "+l.streetApprox+" "+l.fullAddress).toLowerCase());
+    var sd=fmtShort(firstLegDate(l));
+    c.innerHTML=
+      '<div class="svc-top">'+
+        '<div class="svc-dt"><div class="d">'+sd.d+'</div><div class="m">'+sd.m+'</div></div>'+
+        '<div class="svc-h"><div class="a">'+esc(l.streetApprox)+'</div><div class="s">'+esc(l.area)+'</div></div>'+
+      '</div>'+
+      '<div class="jtags">'+
+        (l.legs.out?'<span class="jtag">Take out</span>':'')+
+        (l.legs.in?'<span class="jtag">Bring in</span>':'')+
+        l.bins.map(function(b){return '<span class="jtag" style="background:var(--surface);color:var(--muted)">'+esc(b)+'</span>';}).join("")+
+      '</div>'+
+      '<div class="svc-foot"><span class="pill enroute"><span class="dot"></span>$'+l.pay.toFixed(0)+'</span>'+
+        '<span class="jdist">'+l.distanceMi.toFixed(1)+' mi away</span></div>';
+    c.addEventListener("click",function(){ go("listing",l.id); });
+    return c;
+  }
+
+  function acceptedCard(a,l){
+    var c=el("button","svc"+(a.status==="accepted"?" attn":""));
+    var lbl={accepted:"To do",submitted:"In review",paid:"Paid"}[a.status]||a.status;
+    var pillCls=a.status==="paid"?"settled":(a.status==="submitted"?"done":"enroute");
+    var sd=fmtShort(firstLegDate(l));
+    c.innerHTML=
+      '<div class="svc-top">'+
+        '<div class="svc-dt"><div class="d">'+sd.d+'</div><div class="m">'+sd.m+'</div></div>'+
+        '<div class="svc-h"><div class="a">'+esc(l.fullAddress.split(",")[0])+'</div>'+
+        '<div class="s">'+esc(legsLabel(l.legs))+' &middot; '+esc(l.area)+'</div></div>'+
+      '</div>'+
+      '<div class="svc-foot"><span class="pill '+pillCls+'"><span class="dot"></span>'+lbl+'</span>'+
+        '<span class="jdist">$'+l.pay.toFixed(0)+'</span></div>';
+    c.addEventListener("click",function(){ go("hjob",a.id); });
+    return c;
+  }
+
+  function listingPhotos(l,title){
+    if(!l.photos||!l.photos.length) return null;
+    var pc=el("div","card"); pc.innerHTML='<h3>'+esc(title)+'</h3>';
+    var prow=el("div","photo-row");
+    l.photos.slice(0,3).forEach(function(src){ prow.appendChild(photoFig(src,"Bin location")); });
+    pc.appendChild(prow); return pc;
+  }
+
+  function renderListing(id){
+    ensureHelperSeed();
+    var l=listingById(id), body=$("listing-body"); body.innerHTML="";
+    if(!l){ body.appendChild(el("p","hint","This job is no longer available.")); return; }
+
+    var head=el("div","detail-head");
+    head.innerHTML='<div class="a">'+esc(legsLabel(l.legs))+'</div>'+
+      '<div class="meta">Posted '+rel(l.postedAt)+' by '+esc(l.homeownerFirst)+'</div>'+
+      '<div class="kv">'+l.bins.map(function(b){return '<span class="k">'+esc(b)+'</span>';}).join("")+
+      '<span class="k">$'+l.pay.toFixed(0)+'</span><span class="k">'+l.distanceMi.toFixed(1)+' mi away</span></div>';
+    body.appendChild(head);
+
+    var mc=el("div","card");
+    mc.innerHTML='<h3>Approximate location</h3>';
+    var mp=el("div","map-approx");
+    mp.innerHTML='<div class="ring"></div><div class="mp"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg></div><div class="cap">Approx — exact address after you accept</div>';
+    mc.appendChild(mp);
+    mc.appendChild(el("p","hint",esc(l.streetApprox)+", "+esc(l.area)));
+    body.appendChild(mc);
+
+    var wc=el("div","card"); wc.innerHTML='<h3>When</h3>'; var wl=el("div");
+    if(l.legs.out) wl.appendChild(whenRow("Take out",fmtDate(tsFromDate(l.outDate,l.outTime))+" · "+l.outTime));
+    if(l.legs.in) wl.appendChild(whenRow("Bring in",fmtDate(tsFromDate(l.inDate,l.inTime))+" · "+l.inTime));
+    wc.appendChild(wl); body.appendChild(wc);
+
+    var nc=el("div","card");
+    nc.innerHTML='<h3>Instructions from '+esc(l.homeownerFirst)+'</h3><p style="font-size:12.5px;color:var(--muted);line-height:1.5">'+esc(l.notes)+'</p>';
+    body.appendChild(nc);
+
+    var pc=listingPhotos(l,"Where the bins are kept"); if(pc) body.appendChild(pc);
+
+    var act=el("div","actions");
+    var accept=el("button","cta"); accept.textContent="Accept this job — $"+l.pay.toFixed(0);
+    accept.addEventListener("click",function(){
+      if(!confirm("Accept this job for $"+l.pay.toFixed(0)+"? "+l.homeownerFirst+"'s exact address will be shared with you.")) return;
+      var rec={id:uid(),listingId:l.id,acceptedAt:Date.now(),status:"accepted",jobPhoto:null,submittedAt:null,gpsOverride:false};
+      state.helper.accepted.push(rec); save();
+      toast("info","Job accepted","Address and directions are now in Your jobs.");
+      go("hjob",rec.id);
+    });
+    act.appendChild(accept);
+    body.appendChild(act);
+  }
+
+  function renderHJob(id){
+    ensureHelperSeed();
+    var a=acceptedById(id), body=$("hjob-body"); body.innerHTML="";
+    if(!a){ body.appendChild(el("p","hint","This job is no longer in your list.")); return; }
+    var l=listingById(a.listingId);
+    if(!l){ body.appendChild(el("p","hint","This job is no longer available.")); return; }
+
+    var head=el("div","detail-head");
+    head.innerHTML='<div class="a">'+esc(legsLabel(l.legs))+'</div>'+
+      '<div class="meta">for '+esc(l.homeownerFirst)+' &middot; $'+l.pay.toFixed(0)+'</div>'+
+      '<div class="kv">'+l.bins.map(function(b){return '<span class="k">'+esc(b)+'</span>';}).join("")+'</div>';
+    body.appendChild(head);
+
+    var wc=el("div","card"); wc.innerHTML='<h3>When &amp; where</h3>'; var wl=el("div");
+    if(l.legs.out) wl.appendChild(whenRow("Take out",fmtDate(tsFromDate(l.outDate,l.outTime))+" · "+l.outTime));
+    if(l.legs.in) wl.appendChild(whenRow("Bring in",fmtDate(tsFromDate(l.inDate,l.inTime))+" · "+l.inTime));
+    wc.appendChild(wl);
+    var link=el("a","addr-link");
+    link.href=mapsHref(l.fullAddress); link.target="_blank"; link.rel="noopener noreferrer";
+    link.innerHTML='<span>'+ICONS.pin+'</span><span>'+esc(l.fullAddress)+'</span><span class="go">'+ICONS.truck+'</span>';
+    wc.appendChild(link);
+    wc.appendChild(el("p","hint","Tap the address to open directions in Maps."));
+    body.appendChild(wc);
+
+    var nc=el("div","card");
+    nc.innerHTML='<h3>Instructions from '+esc(l.homeownerFirst)+'</h3><p style="font-size:12.5px;color:var(--muted);line-height:1.5">'+esc(l.notes)+'</p>';
+    body.appendChild(nc);
+
+    var pc=listingPhotos(l,"Where the bins are kept"); if(pc) body.appendChild(pc);
+
+    body.appendChild(a.status==="accepted" ? hjobDoBlock(a,l) : hjobDoneBlock(a,l));
+  }
+
+  function hjobDoBlock(a,l){
+    var wrap=el("div","actions");
+    var note=el("div","review-note");
+    note.innerHTML=ICONS.cam+'<span>When the bins are where they belong, take one clear photo showing them in place, then submit.</span>';
+    wrap.appendChild(note);
+
+    var input=el("input"); input.type="file"; input.accept="image/*"; input.capture="environment"; input.hidden=true; wrap.appendChild(input);
+    if(a.jobPhoto){
+      var shot=el("div","id-shot");
+      shot.innerHTML='<img src="'+a.jobPhoto+'" alt="Job photo"><button class="redo" type="button">Retake</button>';
+      shot.querySelector(".redo").addEventListener("click",function(){ a.jobPhoto=null; save(); renderHJob(a.id); });
+      wrap.appendChild(shot);
+    } else {
+      var dz=el("div","id-drop");
+      dz.innerHTML='<div class="ic">'+ICONS.cam+'</div><div class="t">Take the job photo</div><div class="s">Show the bins where they should be</div>';
+      dz.addEventListener("click",function(){ input.click(); });
+      wrap.appendChild(dz);
+    }
+    input.addEventListener("change",function(){
+      var f=input.files&&input.files[0]; input.value=""; if(!f) return;
+      downscale(f,1000,0.72).then(function(src){ a.jobPhoto=src; save(); renderHJob(a.id); })
+        .catch(function(){ toast("alert","Couldn't read that image","Try another photo."); });
+    });
+
+    var submit=el("button","cta"); submit.textContent="Submit job photo";
+    if(!a.jobPhoto){ submit.disabled=true; submit.style.opacity=".5"; }
+    submit.addEventListener("click",function(){
+      if(!a.jobPhoto) return;
+      var g=simHelperGps(l);
+      if(g.ok) doHelperSubmit(a,l,false);
+      else showLocConfirm(wrap,a,l,g);
+    });
+    wrap.appendChild(submit);
+
+    var msg=el("button","linkbtn"); msg.style.alignSelf="center"; msg.textContent="Message the homeowner";
+    msg.addEventListener("click",function(){ openHelperMsg(wrap,l); });
+    wrap.appendChild(msg);
+    return wrap;
+  }
+
+  function showLocConfirm(wrap,a,l,g){
+    if(wrap.querySelector(".lc-confirm")) return;
+    var box=el("div","lc-confirm");
+    box.innerHTML='<div class="lc-t">'+ICONS.alert+' You don&rsquo;t seem to be at the job location</div>'+
+      '<div class="lc-s">GPS puts you about '+g.offMi.toFixed(1)+' mi from '+esc(l.fullAddress.split(",")[0])+'. Are you sure you want to submit?</div>';
+    var yes=el("button","cta"); yes.textContent="Yes, submit anyway";
+    yes.style.background="var(--alert)"; yes.style.color="#fff";
+    yes.addEventListener("click",function(){ doHelperSubmit(a,l,true); });
+    var no=el("button","cta ghost"); no.textContent="No, not yet";
+    no.addEventListener("click",function(){ box.remove(); });
+    var msg=el("button","linkbtn"); msg.style.alignSelf="center"; msg.textContent="Message the homeowner";
+    msg.addEventListener("click",function(){ box.remove(); openHelperMsg(wrap,l); });
+    box.appendChild(yes); box.appendChild(no); box.appendChild(msg);
+    wrap.appendChild(box);
+    box.scrollIntoView({block:"center",behavior:"smooth"});
+  }
+
+  function openHelperMsg(wrap,l){
+    if(wrap.querySelector(".lc-msg")) return;
+    var box=el("div","lc-confirm lc-msg"); box.style.background="var(--surface)";
+    box.innerHTML='<div class="lc-t" style="color:var(--ink)">Message '+esc(l.homeownerFirst)+'</div>';
+    var ta=el("textarea"); ta.rows=3; ta.placeholder="e.g. I'm at the gate but the code isn't working — can you help?";
+    box.appendChild(ta);
+    var send=el("button","cta"); send.textContent="Send message";
+    send.addEventListener("click",function(){
+      if(ta.value.trim().length<2) return;
+      box.remove();
+      toast("info","Message sent",esc(l.homeownerFirst)+" will get a text and can reply here.");
+    });
+    box.appendChild(send);
+    wrap.appendChild(box);
+    box.scrollIntoView({block:"center",behavior:"smooth"});
+    ta.focus();
+  }
+
+  function doHelperSubmit(a,l,override){
+    a.status="submitted"; a.submittedAt=Date.now(); a.gpsOverride=!!override;
+    save();
+    toast("info","Job photo submitted",(override?"Flagged as off-location. ":"")+esc(l.homeownerFirst)+" has 24 hours to review.");
+    go("hjob",a.id);
+  }
+
+  function hjobDoneBlock(a,l){
+    var wrap=el("div","actions");
+    if(a.status==="submitted"){
+      var n=el("div","review-note"); n.style.background="var(--sand-wash)"; n.style.color="var(--sand-ink)";
+      n.innerHTML=ICONS.check+'<span>Submitted '+rel(a.submittedAt)+'. Payment releases after '+esc(l.homeownerFirst)+"'s 24-hour review, then goes out with Friday's payout.</span>";
+      wrap.appendChild(n);
+      if(a.jobPhoto){
+        var full=el("div","photo-full");
+        full.innerHTML='<img src="'+a.jobPhoto+'" alt="Your job photo">'+
+          '<div class="photo-meta"><span>'+fmtStamp(a.submittedAt)+'</span>'+
+          (a.gpsOverride
+            ? '<span style="color:var(--alert)">GPS outside expected area — you confirmed</span>'
+            : '<span><b>GPS matches address</b></span>')+'</div>';
+        wrap.appendChild(full);
+      }
+      var sim=el("button","cta ghost");
+      sim.innerHTML='<span class="demo-tag" style="background:transparent">demo</span> Simulate homeowner approval';
+      sim.addEventListener("click",function(){
+        a.status="paid"; a.paidAt=Date.now(); save();
+        toast("settled","You earned $"+l.pay.toFixed(0),"Added to this week's payout.");
+        go("hjob",a.id);
+      });
+      wrap.appendChild(sim);
+    } else if(a.status==="paid"){
+      var p=el("div","review-note"); p.style.background="var(--success-wash)"; p.style.color="var(--success)";
+      p.innerHTML=ICONS.cash+'<span>$'+l.pay.toFixed(0)+' approved and added to this week&rsquo;s payout. Paid out Friday.</span>';
+      wrap.appendChild(p);
+      var done=el("button","cta ghost"); done.textContent="Back to jobs";
+      done.addEventListener("click",function(){ go("home"); });
+      wrap.appendChild(done);
+    }
+    return wrap;
+  }
+
   /* ---------- home ---------- */
   function renderHome(){
     var body=$("home-body"); body.innerHTML="";
+    var foot=$("home-foot"); if(foot) foot.textContent="Prototype — the helper's arrival, completion, and verification photo are simulated so you can walk the whole flow. Your jobs are saved in this browser only.";
     var g=el("div","greeting");
     var open=allServices().filter(function(x){return ["settled","confirmed","canceled"].indexOf(x.svc.status)<0;}).length;
     g.innerHTML='<h2>Your services</h2><p>'+(state.jobs.length?open+" active &middot; "+state.jobs.length+" job"+(state.jobs.length>1?"s":""):"Nothing scheduled yet")+'</p>';
@@ -1967,9 +2398,78 @@
   }
 
   /* ---------- settings ---------- */
+  function bindDesktopAlerts(btn){
+    btn.setAttribute("aria-pressed",String(!!state.settings.desktopAlerts));
+    btn.addEventListener("click",function(){
+      if(!state.settings.desktopAlerts){
+        if(!("Notification" in window)){ toast("alert","Not supported","This browser has no notification API."); return; }
+        Notification.requestPermission().then(function(pm){
+          state.settings.desktopAlerts=(pm==="granted");
+          btn.setAttribute("aria-pressed",String(state.settings.desktopAlerts)); save();
+          if(pm!=="granted") toast("alert","Permission needed","Allow notifications in your browser to use this.");
+        });
+      } else { state.settings.desktopAlerts=false; btn.setAttribute("aria-pressed","false"); save(); }
+    });
+  }
+
+  function renderHelperSettings(b,p){
+    var pc=el("div","prof-card");
+    pc.appendChild(el("div",null,'<span style="font-size:10.5px;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);font-weight:800">Account</span>'));
+    var rN=el("div","prof-row"); rN.innerHTML='<span class="k">Name</span><span class="v">'+esc(p.name||"—")+'</span>';
+    var rC=el("div","prof-row");
+    rC.innerHTML='<span class="k">'+(p.authProvider==="google"?"Google":"Email")+'</span>'+
+      '<span class="v" style="display:flex;align-items:center;gap:7px">'+(p.authProvider==="google"?googleG(14):"")+esc(p.email||p.contact||"—")+'</span>';
+    var rI=el("div","prof-row");
+    rI.innerHTML='<span class="k">ID</span><span class="v verified">'+ICONS.check+' Verified'+(p.idVerifiedAt?" · "+fmtDate(p.idVerifiedAt):"")+'</span>';
+    [rN,rC,rI].forEach(function(r){ pc.appendChild(r); });
+    b.appendChild(pc);
+
+    var H=state.helper||{accepted:[],listings:[]};
+    var acc=H.accepted||[];
+    var paid=acc.filter(function(a){return a.status==="paid";});
+    var pend=acc.filter(function(a){return a.status==="submitted";});
+    var earn=paid.reduce(function(s,a){ var l=listingById(a.listingId); return s+(l?l.pay:0); },0);
+    var psum=pend.reduce(function(s,a){ var l=listingById(a.listingId); return s+(l?l.pay:0); },0);
+    var payCard=el("div","card"); payCard.style.marginTop="16px";
+    payCard.innerHTML='<h3>Payouts <span class="demo-tag">simulated</span></h3>';
+    var pw=el("div");
+    pw.appendChild(whenRow("This week","$"+earn.toFixed(0)+" approved"));
+    pw.appendChild(whenRow("Pending","$"+psum.toFixed(0)+" in review"));
+    pw.appendChild(whenRow("Next payout",fmtDate(nextWeekday(5).getTime())));
+    payCard.appendChild(pw);
+    payCard.appendChild(el("p","hint","Weekly payouts land in the bank account or PayPal you connect. Nothing is really transferred in this demo."));
+    b.appendChild(payCard);
+
+    var out=el("button","cta ghost"); out.textContent="Sign out"; out.style.marginTop="18px";
+    out.addEventListener("click",function(){ if(confirm("Sign out? Your accepted jobs stay saved.")) signOut(); });
+    b.appendChild(out);
+
+    var card=el("div","card"); card.style.padding="4px 14px"; card.style.marginTop="18px";
+    var r1=el("div","set-row");
+    r1.innerHTML='<div class="sb"><div class="st">Desktop alerts</div><div class="ss">Show a system notification for new jobs and messages.</div></div>';
+    var t1=el("button","toggle"); bindDesktopAlerts(t1); r1.appendChild(t1); card.appendChild(r1);
+
+    var r2=el("div","set-row");
+    r2.innerHTML='<div class="sb"><div class="st">Fail the location check <span class="demo-tag">demo</span></div><div class="ss">Force every job to read as off-location so you can see the "are you sure?" alert.</div></div>';
+    var t2=el("button","toggle"); t2.setAttribute("aria-pressed",String(!!state.settings.helperGpsFail));
+    t2.addEventListener("click",function(){ state.settings.helperGpsFail=!state.settings.helperGpsFail; t2.setAttribute("aria-pressed",String(state.settings.helperGpsFail)); save(); });
+    r2.appendChild(t2); card.appendChild(r2);
+    b.appendChild(card);
+
+    var danger=el("button","cta ghost"); danger.textContent="Reset my job list"; danger.style.marginTop="18px"; danger.style.color="var(--alert)";
+    danger.addEventListener("click",function(){
+      if(confirm("Remove your accepted jobs and restore the open job list?")){
+        state.helper=null; ensureHelperSeed(); save(); go("home");
+        toast("info","Reset","Job list restored.");
+      }
+    });
+    b.appendChild(danger);
+  }
+
   function renderSettings(){
     var b=$("settings-body"); b.innerHTML="";
     var p=state.profile;
+    if(p.role==="helper"){ renderHelperSettings(b,p); return; }
 
     var pc=el("div","prof-card");
     pc.appendChild(el("div",null,'<span class="eyebrow" style="font-size:10.5px;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted);font-weight:800">Account</span>'));
@@ -2058,20 +2558,7 @@
 
     var r1=el("div","set-row");
     r1.innerHTML='<div class="sb"><div class="st">Desktop alerts</div><div class="ss">Also show a system notification when a helper is nearby or a job is done.</div></div>';
-    var t1=el("button","toggle"); t1.setAttribute("aria-pressed",String(!!state.settings.desktopAlerts));
-    t1.addEventListener("click",function(){
-      if(!state.settings.desktopAlerts){
-        if(!("Notification" in window)){ toast("alert","Not supported","This browser has no notification API."); return; }
-        Notification.requestPermission().then(function(p){
-          state.settings.desktopAlerts=(p==="granted");
-          t1.setAttribute("aria-pressed",String(state.settings.desktopAlerts));
-          save();
-          if(p!=="granted") toast("alert","Permission needed","Allow notifications in your browser to use this.");
-        });
-      } else {
-        state.settings.desktopAlerts=false; t1.setAttribute("aria-pressed","false"); save();
-      }
-    });
+    var t1=el("button","toggle"); bindDesktopAlerts(t1);
     r1.appendChild(t1); card.appendChild(r1);
 
     var r2=el("div","set-row");
@@ -2201,6 +2688,7 @@
     });
   }
 
+  if(state.profile.role==="helper") ensureHelperSeed();
   initForm();
   go(state.profile.signedIn ? "home" : "auth");
   sweepDeadlines();
