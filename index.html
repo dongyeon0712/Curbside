@@ -652,7 +652,7 @@
           <div class="pay-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M4 10v9h16v-9M9 19v-5h6v5"/></svg></div>
           <div>
             <div class="pay-t" id="pay-t">Add a bank account</div>
-            <div class="pay-s">Curbside pays your helper every Friday for the jobs you approved that week, and pulls the total from this account.</div>
+            <div class="pay-s" id="pay-s">Curbside pays your helper every Friday for the jobs you approved that week, and pulls the total from this account.</div>
           </div>
         </div>
 
@@ -1229,7 +1229,12 @@
   }
   function prefillPayout(){
     var p=state.profile.payout;
-    $("pay-t").textContent = p ? "Update your bank account" : "Add a bank account";
+    var helper=state.profile.role==="helper";
+    var accepting=payoutReturn.indexOf("accept:")===0;
+    $("pay-t").textContent = p ? "Update your bank account" : "Add your bank account";
+    $("pay-s").textContent = helper
+      ? "Your payouts land here every Friday — one deposit for every job approved that week. Add an account to start taking jobs."
+      : "Curbside pays your helper every Friday for the jobs you approved that week, and pulls the total from this account.";
     $("py-name").value = p ? (p.nameOnAccount||"") : (state.profile.name||"");
     $("py-routing").value = p ? (p.routingNumber||"") : "";
     $("py-acct").value=""; $("py-acct2").value="";
@@ -1240,7 +1245,8 @@
       c.setAttribute("aria-pressed", String(c.dataset.type===type));
     });
     ["e-py-name","e-py-routing","e-py-acct","e-py-acct2"].forEach(function(id){ $(id).hidden=true; });
-    $("payout-save").textContent = payoutReturn==="new" && !p ? "Save & continue" : "Save bank account";
+    $("payout-save").textContent = p ? "Save bank account"
+      : (accepting ? "Save & take the job" : "Save & continue");
   }
   function savePayout(e){
     e.preventDefault();
@@ -1278,9 +1284,14 @@
     };
     save();
     var dest=payoutReturn; payoutReturn="new";
-    go(dest);
+    if(dest.indexOf("accept:")===0){
+      var lst=listingById(dest.slice(7));
+      if(lst){ doAccept(lst); } else { go("home"); }
+      return;
+    }
+    go(dest==="new" && state.profile.role==="helper" ? "home" : dest);
     toast("info", existing?"Bank account updated":"Bank account saved",
-      payoutSummary(state.profile)+" · helper payouts run every Friday.");
+      payoutSummary(state.profile)+(state.profile.role==="helper"?" · you'll be paid every Friday.":" · helper payouts run every Friday."));
   }
 
   /* ---------- simulation ---------- */
@@ -2072,6 +2083,17 @@
     strip.innerHTML=ICONS.cash+'<span>This week: <b>$'+earn.toFixed(0)+'</b> from '+paid.length+' job'+(paid.length!==1?"s":"")+' &middot; paid out Friday</span>';
     body.appendChild(strip);
 
+    if(!state.profile.payout){
+      var pn=el("div","review-note");
+      pn.style.background="var(--sand-wash)"; pn.style.color="var(--sand-ink)"; pn.style.alignItems="center";
+      pn.innerHTML=ICONS.cash+'<span>Add a bank account to get paid — we\'ll ask when you accept your first job.</span>';
+      var pnb=el("button",null,"Add now");
+      pnb.style.cssText="margin-left:auto;background:none;border:none;color:var(--sand-ink);font-weight:800;font-size:12px;cursor:pointer;flex:none;text-decoration:underline";
+      pnb.addEventListener("click",function(){ payoutReturn="settings"; go("payout"); });
+      pn.appendChild(pnb);
+      body.appendChild(pn);
+    }
+
     var sc=el("div","hsearch");
     sc.innerHTML='<span class="si">'+ICONS.pin+'</span><input type="text" id="h-search" placeholder="Search a city, ZIP or street" autocomplete="off">';
     body.appendChild(sc);
@@ -2194,18 +2216,31 @@
     var pc=listingPhotos(l,"Where the bins are kept"); if(pc) body.appendChild(pc);
 
     var act=el("div","actions");
-    var accept=el("button","cta"); accept.textContent="Accept this job — $"+l.pay.toFixed(0);
-    accept.addEventListener("click",function(){
-      if(!confirm("Accept this job for $"+l.pay.toFixed(0)+"? "+l.homeownerFirst+"'s exact address will be shared with you.")) return;
-      var rec={id:uid(),listingId:l.id,acceptedAt:Date.now(),status:"accepted",jobPhoto:null,submittedAt:null,gpsOverride:false};
-      state.helper.accepted.push(rec);
-      chatFor("h:"+rec.id); // open the thread with the homeowner right away
-      save();
-      toast("info","Job accepted","Address, directions and a chat with "+esc(l.homeownerFirst)+" are in Your jobs.");
-      go("hjob",rec.id);
-    });
+    if(!state.profile.payout){
+      var pnote=el("div","review-note");
+      pnote.style.background="var(--sand-wash)"; pnote.style.color="var(--sand-ink)";
+      pnote.innerHTML=ICONS.cash+'<span>Add a bank account first so your payout has somewhere to land — takes a minute.</span>';
+      act.appendChild(pnote);
+    }
+    var accept=el("button","cta");
+    accept.textContent=(state.profile.payout?"Accept this job — $":"Add bank account & accept — $")+l.pay.toFixed(0);
+    accept.addEventListener("click",function(){ startAccept(l); });
     act.appendChild(accept);
     body.appendChild(act);
+  }
+
+  function startAccept(l){
+    if(!state.profile.payout){ payoutReturn="accept:"+l.id; go("payout"); return; }
+    if(!confirm("Accept this job for $"+l.pay.toFixed(0)+"? "+l.homeownerFirst+"'s exact address will be shared with you.")) return;
+    doAccept(l);
+  }
+  function doAccept(l){
+    var rec={id:uid(),listingId:l.id,acceptedAt:Date.now(),status:"accepted",jobPhoto:null,submittedAt:null,gpsOverride:false};
+    state.helper.accepted.push(rec);
+    chatFor("h:"+rec.id); // open the thread with the homeowner right away
+    save();
+    toast("info","Job accepted","Address, directions and a chat with "+esc(l.homeownerFirst)+" are in Your jobs.");
+    go("hjob",rec.id);
   }
 
   function renderHJob(id){
@@ -2861,11 +2896,25 @@
     var payCard=el("div","card"); payCard.style.marginTop="16px";
     payCard.innerHTML='<h3>Payouts <span class="demo-tag">simulated</span></h3>';
     var pw=el("div");
+    if(p.payout){
+      var rAcct=el("div","prof-row");
+      rAcct.innerHTML='<span class="k">Account</span><span class="v">'+esc(payoutSummary(p))+'</span>';
+      var eA=el("button","edit","Update");
+      eA.addEventListener("click",function(){ payoutReturn="settings"; go("payout"); });
+      rAcct.appendChild(eA); pw.appendChild(rAcct);
+    }
     pw.appendChild(whenRow("This week","$"+earn.toFixed(0)+" approved"));
     pw.appendChild(whenRow("Pending","$"+psum.toFixed(0)+" in review"));
     pw.appendChild(whenRow("Next payout",fmtDate(nextWeekday(5).getTime())));
     payCard.appendChild(pw);
-    payCard.appendChild(el("p","hint","Weekly payouts land in the bank account or PayPal you connect. Nothing is really transferred in this demo."));
+    if(p.payout){
+      payCard.appendChild(el("p","hint","Payouts run every Friday to "+esc(payoutSummary(p))+". Simulated in this demo."));
+    } else {
+      payCard.appendChild(el("p","hint","No bank account yet. Add one so your payouts have somewhere to land — we'll ask when you accept your first job."));
+      var addB=el("button","cta ghost"); addB.textContent="Add a bank account"; addB.style.marginTop="8px";
+      addB.addEventListener("click",function(){ payoutReturn="settings"; go("payout"); });
+      payCard.appendChild(addB);
+    }
     b.appendChild(payCard);
 
     var out=el("button","cta ghost"); out.textContent="Sign out"; out.style.marginTop="18px";
