@@ -447,6 +447,31 @@
 
   /* helper flow */
   .linkbtn{background:none;border:none;color:var(--primary);font-family:var(--font);font-size:12.5px;font-weight:700;cursor:pointer;padding:4px 0}
+
+  /* chat */
+  #view-chat{flex:1;display:flex;flex-direction:column;min-height:0}
+  #view-chat .scroll{flex:1}
+  .chat-wrap{padding:14px 14px 16px;display:flex;flex-direction:column;gap:2px;min-height:100%}
+  .chat-day{align-self:center;font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);background:var(--surface);border-radius:999px;padding:3px 10px;margin:6px 0 12px}
+  .cmsg{display:flex;flex-direction:column;max-width:80%;margin-bottom:9px}
+  .cmsg.mine{align-self:flex-end;align-items:flex-end}
+  .cmsg.theirs{align-self:flex-start;align-items:flex-start}
+  .cmsg .bub{padding:9px 12px;border-radius:16px;font-size:13.5px;line-height:1.42;white-space:pre-wrap;word-break:break-word}
+  .cmsg.mine .bub{background:var(--primary);color:var(--primary-ink);border-bottom-right-radius:5px}
+  .cmsg.theirs .bub{background:var(--surface);color:var(--ink);border-bottom-left-radius:5px}
+  .cmeta{font-size:10px;color:var(--muted);margin-top:3px;padding:0 4px;font-variant-numeric:tabular-nums}
+  .cmsg.mine .cmeta b{color:var(--primary-deep);font-weight:700}
+  .cmsg.typing .bub{display:flex;gap:4px;align-items:center;padding:12px 14px}
+  .cmsg.typing .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:cbd 1.2s infinite ease-in-out}
+  .cmsg.typing .dot:nth-child(2){animation-delay:.18s}
+  .cmsg.typing .dot:nth-child(3){animation-delay:.36s}
+  @keyframes cbd{0%,70%,100%{opacity:.35;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)}}
+  .chat-foot{flex:none;display:flex;gap:8px;align-items:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--app);border-top:1px solid var(--hair-soft)}
+  .chat-foot input{flex:1;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:10px 14px;outline:none}
+  .chat-foot input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-wash)}
+  .chat-foot .snd{flex:none;width:38px;height:38px;border-radius:50%;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .chat-foot .snd:disabled{opacity:.4;cursor:default}
+  @media (prefers-reduced-motion:reduce){.cmsg.typing .dot{animation:none}}
   .hsearch{position:relative;margin-top:2px}
   .hsearch input{width:100%;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--app);border:1px solid var(--hair);border-radius:11px;padding:11px 12px 11px 36px;outline:none}
   .hsearch input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-wash)}
@@ -604,6 +629,14 @@
 
     <section class="screen" id="view-hjob" hidden>
       <div class="scroll"><div class="detail" id="hjob-body"></div></div>
+    </section>
+
+    <section class="screen" id="view-chat" hidden>
+      <div class="scroll" id="chat-scroll"><div class="chat-wrap" id="chat-body"></div></div>
+      <div class="chat-foot">
+        <input type="text" id="chat-input" placeholder="Message…" autocomplete="off" aria-label="Message">
+        <button class="snd" id="chat-send" aria-label="Send"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 12l16-8-6 16-3-7-7-1z"/></svg></button>
+      </div>
     </section>
   </main>
 </div>
@@ -820,6 +853,7 @@
     alert:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
     cash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg>',
     x:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    chat:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg>',
     cog:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.4"/><path d="M12 2v3M12 19v3M4 12H1M23 12h-3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>'
   };
 
@@ -1151,7 +1185,12 @@
 
   /* ---------- routing ---------- */
   var route={name:"home",param:null};
-  function go(name,param){ route={name:name,param:param||null}; window.scrollTo(0,0); refresh(); }
+  function go(name,param){
+    // leave any pending reply running (it toasts if you've navigated away),
+    // but drop the transient "typing…" state so it doesn't leak to other screens
+    if(!(name==="chat" && param===route.param)) chatTyping=null;
+    route={name:name,param:param||null}; window.scrollTo(0,0); refresh();
+  }
   function refresh(){
     if(!state.profile.signedIn && route.name!=="auth") route={name:"auth",param:null};
     if(state.profile.signedIn && route.name==="auth") route={name:"home",param:null};
@@ -1175,19 +1214,26 @@
       }
     } else {
       var back=el("button","back-btn"); back.setAttribute("aria-label","Back"); back.innerHTML=ICONS.back;
-      back.addEventListener("click",function(){ go("home"); }); t.appendChild(back);
+      back.addEventListener("click",chatBackTarget); t.appendChild(back);
       var title="";
       if(route.name==="new") title="New job";
       else if(route.name==="settings") title="Settings";
       else if(route.name==="service"){ var f=findService(route.param); title=f?f.job.address.split(",")[0]:"Service"; }
       else if(route.name==="listing") title="Job details";
       else if(route.name==="hjob"){ var A=acceptedById(route.param); var LL=A&&listingById(A.listingId); title=LL?LL.fullAddress.split(",")[0]:"Your job"; }
+      else if(route.name==="chat"){ title=(chatTyping===route.param)?"typing…":chatFor(route.param).who; }
       t.appendChild(el("h1",null,esc(title)));
     }
   }
+  function chatBackTarget(){
+    var k=route.name==="chat" ? (route.param||"") : "";
+    if(k.indexOf("h:")===0) return go("hjob",k.slice(2));
+    if(k.indexOf("o:")===0) return go("service",k.slice(2));
+    go("home");
+  }
 
   function show(id){
-    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob"].forEach(function(v){ $(v).hidden=(v!==id); });
+    ["view-auth","view-home","view-new","view-service","view-settings","view-listing","view-hjob","view-chat"].forEach(function(v){ $(v).hidden=(v!==id); });
   }
 
   function renderScreen(){
@@ -1198,6 +1244,7 @@
     else if(route.name==="settings"){ show("view-settings"); renderSettings(); }
     else if(route.name==="listing"){ show("view-listing"); renderListing(route.param); }
     else if(route.name==="hjob"){ show("view-hjob"); renderHJob(route.param); }
+    else if(route.name==="chat"){ show("view-chat"); renderChat(route.param); }
   }
 
   /* ---------- auth / onboarding ---------- */
@@ -2022,10 +2069,18 @@
     });
     wrap.appendChild(submit);
 
-    var msg=el("button","linkbtn"); msg.style.alignSelf="center"; msg.textContent="Message the homeowner";
-    msg.addEventListener("click",function(){ openHelperMsg(wrap,l); });
-    wrap.appendChild(msg);
+    wrap.appendChild(messageBtn("h:"+a.id, l.homeownerFirst));
     return wrap;
+  }
+
+  function messageBtn(key, who){
+    var b=el("button","cta ghost"); b.style.marginTop="2px";
+    b.innerHTML=ICONS.chat+' Message '+esc(who);
+    var c=state.chats&&state.chats[key];
+    var unread=c && c.messages.length && c.messages[c.messages.length-1].from==="them" && !c.seenByMe;
+    if(unread) b.innerHTML+=' <span class="pill enroute" style="font-size:10px;padding:1px 7px">New</span>';
+    b.addEventListener("click",function(){ go("chat",key); });
+    return b;
   }
 
   function showLocConfirm(wrap,a,l,g){
@@ -2038,29 +2093,119 @@
     yes.addEventListener("click",function(){ doHelperSubmit(a,l,true); });
     var no=el("button","cta ghost"); no.textContent="No, not yet";
     no.addEventListener("click",function(){ box.remove(); });
-    var msg=el("button","linkbtn"); msg.style.alignSelf="center"; msg.textContent="Message the homeowner";
-    msg.addEventListener("click",function(){ box.remove(); openHelperMsg(wrap,l); });
+    var msg=el("button","linkbtn"); msg.style.alignSelf="center"; msg.textContent="Message "+esc(l.homeownerFirst);
+    msg.addEventListener("click",function(){ go("chat","h:"+a.id); });
     box.appendChild(yes); box.appendChild(no); box.appendChild(msg);
     wrap.appendChild(box);
     box.scrollIntoView({block:"center",behavior:"smooth"});
   }
 
-  function openHelperMsg(wrap,l){
-    if(wrap.querySelector(".lc-msg")) return;
-    var box=el("div","lc-confirm lc-msg"); box.style.background="var(--surface)";
-    box.innerHTML='<div class="lc-t" style="color:var(--ink)">Message '+esc(l.homeownerFirst)+'</div>';
-    var ta=el("textarea"); ta.rows=3; ta.placeholder="e.g. I'm at the gate but the code isn't working — can you help?";
-    box.appendChild(ta);
-    var send=el("button","cta"); send.textContent="Send message";
-    send.addEventListener("click",function(){
-      if(ta.value.trim().length<2) return;
-      box.remove();
-      toast("info","Message sent",esc(l.homeownerFirst)+" will get a text and can reply here.");
+  /* ---------- chat (homeowner <-> helper) ---------- */
+  var chatTyping=null, chatTimers=[];
+  var REPLY_FROM_HOMEOWNER=[
+    "Perfect, thank you so much!",
+    "No rush at all — whenever you get there is fine.",
+    "The gate code is 4417 if the latch is locked.",
+    "Great, I can see the photo. Looks exactly right!",
+    "Recycling is the one with the blue lid. Appreciate it!",
+    "Thanks for keeping me posted 🙏"
+  ];
+  var REPLY_FROM_HELPER=[
+    "On my way now — about 10 minutes out.",
+    "Just pulled up, starting on the bins.",
+    "All set — photo's uploaded on your end.",
+    "Bins are at the curb, 3 ft apart like you asked.",
+    "No problem, I'll take care of it tonight.",
+    "Got it, thanks for the heads up!"
+  ];
+
+  function chatTime(ts){
+    var d=new Date(ts), h=d.getHours(), ap=h>=12?"pm":"am"; h=h%12||12;
+    return h+":"+String(d.getMinutes()).padStart(2,"0")+ap;
+  }
+  function chatFor(key){
+    if(!state.chats) state.chats={};
+    if(!state.chats[key]){
+      var now=Date.now(), kind=key.split(":")[0], id=key.slice(2), who="Homeowner", seed=[];
+      if(kind==="h"){
+        var a=acceptedById(id), l=a&&listingById(a.listingId);
+        who=l?l.homeownerFirst:"Homeowner";
+        seed=[{from:"them",text:"Hi! Thanks so much for taking this one. Text me here if anything comes up when you're there.",ts:now-3600000}];
+      } else {
+        who="Marcus B.";
+        seed=[{from:"them",text:"Hi — I've got your job. I'll head over around the scheduled time and send a photo once the bins are set.",ts:now-5400000}];
+      }
+      state.chats[key]={who:who,messages:seed,theirReadIdx:-1,theirReadAt:null,seenByMe:true};
+    }
+    return state.chats[key];
+  }
+
+  function renderChat(key){
+    var chat=chatFor(key);
+    chat.seenByMe=true; save();
+    var body=$("chat-body"); body.innerHTML="";
+    var lastMine=-1;
+    chat.messages.forEach(function(m,i){ if(m.from==="me") lastMine=i; });
+    var prevDay=null;
+    chat.messages.forEach(function(m,i){
+      var dayKey=new Date(m.ts).toDateString();
+      if(dayKey!==prevDay){
+        prevDay=dayKey;
+        var today=new Date().toDateString();
+        body.appendChild(el("div","chat-day", dayKey===today ? "Today" : fmtDate(m.ts)));
+      }
+      var row=el("div","cmsg "+(m.from==="me"?"mine":"theirs"));
+      var meta=chatTime(m.ts);
+      if(m.from==="me" && i===lastMine && chat.theirReadIdx>=i && chat.theirReadAt){
+        meta='<b>Read '+chatTime(chat.theirReadAt)+'</b>';
+      }
+      row.innerHTML='<div class="bub">'+esc(m.text)+'</div><div class="cmeta">'+meta+'</div>';
+      body.appendChild(row);
     });
-    box.appendChild(send);
-    wrap.appendChild(box);
-    box.scrollIntoView({block:"center",behavior:"smooth"});
-    ta.focus();
+    if(chatTyping===key){
+      var t=el("div","cmsg theirs typing");
+      t.innerHTML='<div class="bub"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+      body.appendChild(t);
+    }
+    var sc=$("chat-scroll");
+    requestAnimationFrame(function(){ if(sc) sc.scrollTop=sc.scrollHeight; });
+    var send=$("chat-send"); send.disabled=!$("chat-input").value.trim();
+  }
+
+  function sendChatMsg(){
+    if(route.name!=="chat") return;
+    var key=route.param, inp=$("chat-input"), txt=inp.value.trim();
+    if(!txt) return;
+    var chat=chatFor(key);
+    chat.messages.push({from:"me",text:txt,ts:Date.now()});
+    inp.value=""; save();
+    renderChat(key);
+    scheduleReply(key);
+  }
+
+  function scheduleReply(key){
+    chatTimers.forEach(clearTimeout); chatTimers=[];
+    chatTimers.push(setTimeout(function(){
+      var chat=chatFor(key);
+      chat.theirReadIdx=chat.messages.length-1; chat.theirReadAt=Date.now(); save();
+      if(route.name==="chat" && route.param===key) renderChat(key);
+      chatTyping=key;
+      if(route.name==="chat" && route.param===key){ renderChat(key); renderTopbar(); }
+      chatTimers.push(setTimeout(function(){
+        chatTyping=null;
+        var chat2=chatFor(key);
+        var pool=key.split(":")[0]==="h" ? REPLY_FROM_HOMEOWNER : REPLY_FROM_HELPER;
+        var n=chat2.messages.filter(function(m){return m.from==="them";}).length;
+        chat2.messages.push({from:"them",text:pool[n % pool.length],ts:Date.now()});
+        chat2.seenByMe=(route.name==="chat" && route.param===key);
+        save();
+        if(route.name==="chat" && route.param===key){ renderChat(key); renderTopbar(); }
+        else {
+          toast("info","Message from "+chat2.who, chat2.messages[chat2.messages.length-1].text, function(){ go("chat",key); });
+          renderScreen();
+        }
+      }, 1500+Math.random()*1100));
+    }, 650));
   }
 
   function doHelperSubmit(a,l,override){
@@ -2093,10 +2238,12 @@
         go("hjob",a.id);
       });
       wrap.appendChild(sim);
+      wrap.appendChild(messageBtn("h:"+a.id, l.homeownerFirst));
     } else if(a.status==="paid"){
       var p=el("div","review-note"); p.style.background="var(--success-wash)"; p.style.color="var(--success)";
       p.innerHTML=ICONS.cash+'<span>$'+l.pay.toFixed(0)+' approved and added to this week&rsquo;s payout. Paid out Friday.</span>';
       wrap.appendChild(p);
+      wrap.appendChild(messageBtn("h:"+a.id, l.homeownerFirst));
       var done=el("button","cta ghost"); done.textContent="Back to jobs";
       done.addEventListener("click",function(){ go("home"); });
       wrap.appendChild(done);
@@ -2322,6 +2469,10 @@
         q.innerHTML='<h3>Your note</h3><p style="font-size:12.5px;color:var(--muted)">'+esc(svc.dispute.note)+'</p>';
         wrap.appendChild(q);
       }
+    }
+
+    if(["enroute","done","confirmed","settled","disputed"].indexOf(svc.status)>-1){
+      wrap.appendChild(messageBtn("o:"+svc.id, "Marcus B."));
     }
 
     if(["confirmed","settled","canceled"].indexOf(svc.status)>-1){
@@ -2631,6 +2782,11 @@
     $("job-form").addEventListener("submit",submitJob);
     renderThumbs("ref");
     syncLegUI();
+
+    var ci=$("chat-input");
+    ci.addEventListener("input",function(){ $("chat-send").disabled=!this.value.trim(); });
+    ci.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); sendChatMsg(); } });
+    $("chat-send").addEventListener("click",sendChatMsg);
   }
 
   function wireAddressAutocomplete(){
